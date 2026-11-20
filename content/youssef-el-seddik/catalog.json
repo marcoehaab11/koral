@@ -1,0 +1,413 @@
+{
+  "profile": {
+    "nameEn": "Youssef El-Seddik Choir",
+    "nameAr": "كورال يوسف الصديق",
+    "introEn": "Hymns from the Church of St. Mary in Toril, Mansoura.",
+    "introAr": "ترانيم من كنيسة السيدة العذراء مريم بتوريل، المنصورة.",
+    "aboutEn": "Youssef El-Seddik Choir sings at the Church of St. Mary in Toril, Mansoura. Explore the choir’s recorded hymns, videos, and early releases.",
+    "aboutAr": "كورال يوسف الصديق من كنيسة السيدة العذراء مريم بتوريل، المنصورة. هنا تقدر تسمع ترانيم الكورال وتتفرج على تسجيلاته وتتعرف على إصداراته الأولى.",
+    "historyEn": "The choir presented hymns at the church’s 2011 «Rehearsal for Tomorrow» gathering. By then, three recordings had been released: Jesus, My Lord (2006), I Saw Her Light (2008), and Your Salvation, Jesus (2010).",
+    "historyAr": "شارك الكورال في فعاليات «بروفة بيوم جاي» بكنيسة السيدة العذراء مريم سنة ٢٠١١. وقبلها صدرت له ثلاثة شرائط: «يسوع ربي» سنة ٢٠٠٦، و«شفت نورها» سنة ٢٠٠٨، و«خلاصك يسوع» سنة ٢٠١٠.",
+    "addressEn": "Church of St. Mary, Toril, Mansoura, Egypt",
+    "addressAr": "كنيسة السيدة العذراء مريم، توريل، المنصورة، مصر",
+    "social": [
+      {
+        "platformName": "Facebook",
+        "url": "https://www.facebook.com/YousefElsedeekChoir",
+        "label": "",
+        "icon": ""
+      },
+      {
+        "platformName": "Instagram",
+        "url": "https://www.instagram.com/youssef_elsedik_choir/",
+        "label": "",
+        "icon": ""
+      },
+      {
+        "platformName": "YouTube",
+        "url": "https://www.youtube.com/channel/UCOt5zTpmT3VKLye2jLA8pMw",
+        "label": "",
+        "icon": "play"
+      },
+      {
+        "platformName": "Anghami",
+        "url": "https://play.anghami.com/artist/2699042",
+        "label": "",
+        "icon": "music"
+      },
+      {
+        "platformName": "SoundCloud",
+        "url": "https://soundcloud.com/c6qaswvbbco9",
+        "label": "SoundCloud",
+        "icon": "music"
+      },
+      {
+        "platformName": "SoundCloud",
+        "url": "https://soundcloud.com/youssefelsedeek-choir",
+        "label": "SoundCloud 2",
+        "icon": "music"
+      }
+    ]
+  },
+  "settings": {
+    "titleEn": "Youssef El-Seddik Choir",
+    "titleAr": "كورال يوسف الصديق",
+    "defaultLanguage": "ar",
+    "descriptionEn": "Explore the hymns, recordings, and releases of Youssef El-Seddik Choir in Toril, Mansoura.",
+    "descriptionAr": "اسمع ترانيم كورال يوسف الصديق بكنيسة السيدة العذراء مريم بتوريل، المنصورة، وتصفح تسجيلاته وإصداراته.",
+    "homeGallery": false
+  },
+  "albums": [
+    {
+      "titleAr": "مختارات من الكورال",
+      "titleEn": "Choir Recordings",
+      "slug": "choir-recordings",
+      "artwork": "collection.webp",
+      "featured": true,
+      "descriptionAr": "مجموعة مختارة للموقع من تسجيلات الكورال على يوتيوب وساوند كلاود وأنغامي.",
+      "descriptionEn": "A website collection of recordings published by the choir on YouTube, SoundCloud, and Anghami."
+    },
+    {
+      "titleAr": "خلاصك يسوع",
+      "titleEn": "Your Salvation, Jesus",
+      "slug": "your-salvation-jesus",
+      "artwork": "archive-2010.webp",
+      "descriptionAr": "إصدار من أرشيف كورال يوسف الصديق، صدر سنة 2010. قائمة ترانيم الإصدار غير متوفرة حاليًا.",
+      "descriptionEn": "A 2010 release from the Youssef El-Seddik Choir archive. The original track list is currently unavailable.",
+      "source": "https://www.ahram.org.eg/Egypt/News/120903.aspx"
+    },
+    {
+      "titleAr": "شفت نورها",
+      "titleEn": "I Saw Her Light",
+      "slug": "i-saw-her-light",
+      "artwork": "archive-2008.webp",
+      "descriptionAr": "إصدار من أرشيف الكورال سنة ٢٠٠٨. تقدر تسمع تسجيل الترنيمة الرئيسية المنشور بواسطة Freedom Sound Studio.",
+      "descriptionEn": "A release from the choir’s 2008 archive. The title track links to the recording published by Freedom Sound Studio.",
+      "source": "https://www.ahram.org.eg/Egypt/News/120903.aspx"
+    },
+    {
+      "titleAr": "يسوع ربي",
+      "titleEn": "Jesus, My Lord",
+      "slug": "jesus-my-lord",
+      "artwork": "archive-2006.webp",
+      "descriptionAr": "إصدار من أرشيف كورال يوسف الصديق، صدر سنة 2006. قائمة ترانيم الإصدار غير متوفرة حاليًا.",
+      "descriptionEn": "A 2006 release from the Youssef El-Seddik Choir archive. The original track list is currently unavailable.",
+      "source": "https://www.ahram.org.eg/Egypt/News/120903.aspx"
+    },
+    {
+      "titleAr": "ألبوم تجريبي",
+      "titleEn": "Demo Album",
+      "slug": "demo-album",
+      "artwork": "test.webp",
+      "preview": true,
+      "descriptionEn": "A website preview with a short, generated instrumental sound check.",
+      "descriptionAr": "ألبوم لمعاينة شكل الموقع، فيه عينة نغمات مولّدة لاختبار المشغّل."
+    }
+  ],
+  "songs": [
+    {
+      "titleAr": "يا حسنها مدينة",
+      "titleEn": "Ya Hosnaha Madina",
+      "slug": "ya-hosnaha-madina",
+      "date": "2023-10-11T00:00:00Z",
+      "sort": 1,
+      "album": "choir-recordings",
+      "artwork": "collection.webp",
+      "links": [
+        {
+          "platformName": "YouTube",
+          "url": "https://www.youtube.com/watch?v=WkFMZtkCIJg",
+          "label": "",
+          "icon": "play"
+        },
+        {
+          "platformName": "SoundCloud",
+          "url": "https://soundcloud.com/c6qaswvbbco9/gh1veypdnysm",
+          "label": "",
+          "icon": "music"
+        }
+      ],
+      "descriptionEn": "Listen to this recording from the choir’s official channels.",
+      "descriptionAr": "اسمع التسجيل على منصات كورال يوسف الصديق."
+    },
+    {
+      "titleAr": "صورة ربنا",
+      "titleEn": "Sourat Rabbena",
+      "slug": "sourat-rabbena",
+      "date": "2021-01-25T00:00:00Z",
+      "sort": 2,
+      "album": "choir-recordings",
+      "artwork": "collection.webp",
+      "links": [
+        {
+          "platformName": "YouTube",
+          "url": "https://www.youtube.com/watch?v=jPTTroAj5yQ",
+          "label": "",
+          "icon": "play"
+        },
+        {
+          "platformName": "SoundCloud",
+          "url": "https://soundcloud.com/c6qaswvbbco9/afrc4vnrm7mz",
+          "label": "",
+          "icon": "music"
+        }
+      ],
+      "descriptionEn": "Listen to this recording from the choir’s official channels.",
+      "descriptionAr": "اسمع التسجيل على منصات كورال يوسف الصديق."
+    },
+    {
+      "titleAr": "كنيستي كنيستي",
+      "titleEn": "Knesti Knesti",
+      "slug": "knesti-knesti",
+      "date": "2020-04-28T00:00:00Z",
+      "sort": 3,
+      "album": "choir-recordings",
+      "artwork": "collection.webp",
+      "links": [
+        {
+          "platformName": "Anghami",
+          "url": "https://play.anghami.com/song/1107946341",
+          "label": "",
+          "icon": "music"
+        },
+        {
+          "platformName": "SoundCloud",
+          "url": "https://soundcloud.com/c6qaswvbbco9/as8xhh12aagc",
+          "label": "",
+          "icon": "music"
+        }
+      ],
+      "descriptionEn": "Listen to this recording from the choir’s official channels.",
+      "descriptionAr": "اسمع التسجيل على منصات كورال يوسف الصديق."
+    },
+    {
+      "titleAr": "مالي سواك",
+      "titleEn": "Mali Sewak",
+      "slug": "mali-sewak",
+      "date": "2020-04-28T00:00:00Z",
+      "sort": 4,
+      "album": "choir-recordings",
+      "artwork": "collection.webp",
+      "links": [
+        {
+          "platformName": "SoundCloud",
+          "url": "https://soundcloud.com/c6qaswvbbco9/bacv3zrvg6ke",
+          "label": "",
+          "icon": "music"
+        }
+      ],
+      "descriptionEn": "Listen to this recording from the choir’s official channels.",
+      "descriptionAr": "اسمع التسجيل على منصات كورال يوسف الصديق."
+    },
+    {
+      "titleAr": "اسمع صراخي يا سيدي",
+      "titleEn": "Esmaa Sorakhi Ya Sidi",
+      "slug": "esmaa-sorakhi",
+      "date": "2020-04-28T00:00:00Z",
+      "sort": 5,
+      "album": "choir-recordings",
+      "artwork": "collection.webp",
+      "links": [
+        {
+          "platformName": "SoundCloud",
+          "url": "https://soundcloud.com/c6qaswvbbco9/j6gs4rkudkid",
+          "label": "",
+          "icon": "music"
+        }
+      ],
+      "descriptionEn": "Listen to this recording from the choir’s official channels.",
+      "descriptionAr": "اسمع التسجيل على منصات كورال يوسف الصديق."
+    },
+    {
+      "titleAr": "تنده عليا وأسكتك",
+      "titleEn": "Tendah Alaya",
+      "slug": "tendah-alaya",
+      "date": "2020-04-27T00:00:00Z",
+      "sort": 6,
+      "album": "choir-recordings",
+      "artwork": "collection.webp",
+      "links": [
+        {
+          "platformName": "SoundCloud",
+          "url": "https://soundcloud.com/c6qaswvbbco9/os3wqut4gdxa",
+          "label": "",
+          "icon": "music"
+        }
+      ],
+      "descriptionEn": "Listen to this recording from the choir’s official channels.",
+      "descriptionAr": "اسمع التسجيل على منصات كورال يوسف الصديق."
+    },
+    {
+      "titleAr": "لو إيه في الدنيا حصلي",
+      "titleEn": "Law Eh Fel Donia Hasali",
+      "slug": "law-eh-fel-donia",
+      "date": "2020-04-27T00:00:00Z",
+      "sort": 7,
+      "album": "choir-recordings",
+      "artwork": "collection.webp",
+      "links": [
+        {
+          "platformName": "SoundCloud",
+          "url": "https://soundcloud.com/c6qaswvbbco9/cn92exbnndya",
+          "label": "",
+          "icon": "music"
+        }
+      ],
+      "descriptionEn": "Listen to this recording from the choir’s official channels.",
+      "descriptionAr": "اسمع التسجيل على منصات كورال يوسف الصديق."
+    },
+    {
+      "titleAr": "ماريونت",
+      "titleEn": "Marionette",
+      "slug": "marionette",
+      "date": "2020-03-02T00:00:00Z",
+      "sort": 8,
+      "album": "choir-recordings",
+      "artwork": "collection.webp",
+      "links": [
+        {
+          "platformName": "YouTube",
+          "url": "https://www.youtube.com/watch?v=p5uO2ZPVIAE",
+          "label": "",
+          "icon": "play"
+        },
+        {
+          "platformName": "SoundCloud",
+          "url": "https://soundcloud.com/c6qaswvbbco9/gkepgguuryz1",
+          "label": "",
+          "icon": "music"
+        }
+      ],
+      "descriptionEn": "Listen to this recording from the choir’s official channels.",
+      "descriptionAr": "اسمع التسجيل على منصات كورال يوسف الصديق."
+    },
+    {
+      "titleAr": "الله خلق الإنسان",
+      "titleEn": "God Created Man",
+      "slug": "god-created-man",
+      "date": "2020-03-02T00:00:00Z",
+      "sort": 9,
+      "album": "choir-recordings",
+      "artwork": "collection.webp",
+      "links": [
+        {
+          "platformName": "SoundCloud",
+          "url": "https://soundcloud.com/c6qaswvbbco9/06m1ilkqko7d",
+          "label": "",
+          "icon": "music"
+        }
+      ],
+      "descriptionEn": "Listen to this recording from the choir’s official channels.",
+      "descriptionAr": "اسمع التسجيل على منصات كورال يوسف الصديق."
+    },
+    {
+      "titleAr": "المزمور ٤٢",
+      "titleEn": "Psalm 42",
+      "slug": "psalm-42",
+      "date": "2020-03-02T00:00:00Z",
+      "sort": 10,
+      "album": "choir-recordings",
+      "artwork": "collection.webp",
+      "links": [
+        {
+          "platformName": "SoundCloud",
+          "url": "https://soundcloud.com/c6qaswvbbco9/8d9jnzgzvoxi",
+          "label": "",
+          "icon": "music"
+        }
+      ],
+      "descriptionEn": "Listen to this recording from the choir’s official channels.",
+      "descriptionAr": "اسمع التسجيل على منصات كورال يوسف الصديق."
+    },
+    {
+      "titleAr": "أنا عارف صوتك",
+      "titleEn": "I Know Your Voice",
+      "slug": "i-know-your-voice",
+      "sort": 11,
+      "album": "choir-recordings",
+      "artwork": "collection.webp",
+      "links": [
+        {
+          "platformName": "YouTube",
+          "url": "https://www.youtube.com/watch?v=1e1bCwnEex8",
+          "label": "",
+          "icon": "play"
+        }
+      ],
+      "descriptionEn": "Listen to this recording from the choir’s official channels.",
+      "descriptionAr": "اسمع التسجيل على منصات كورال يوسف الصديق."
+    },
+    {
+      "titleAr": "البابا شنوده",
+      "titleEn": "Pope Shenouda",
+      "slug": "pope-shenouda",
+      "sort": 12,
+      "album": "choir-recordings",
+      "artwork": "collection.webp",
+      "links": [
+        {
+          "platformName": "YouTube",
+          "url": "https://www.youtube.com/watch?v=ga7-TIrzz0c",
+          "label": "",
+          "icon": "play"
+        }
+      ],
+      "descriptionEn": "Listen to this recording from the choir’s official channels.",
+      "descriptionAr": "اسمع التسجيل على منصات كورال يوسف الصديق."
+    },
+    {
+      "titleAr": "أول أناجيل ربنا",
+      "titleEn": "The First Gospels of Our Lord",
+      "slug": "the-first-gospels",
+      "sort": 13,
+      "album": "choir-recordings",
+      "artwork": "collection.webp",
+      "links": [
+        {
+          "platformName": "YouTube",
+          "url": "https://www.youtube.com/watch?v=BmrC92ys1Dk",
+          "label": "",
+          "icon": "play"
+        }
+      ],
+      "descriptionEn": "A choir recording with Fr. Moussa Roshdy and Sandra Hany, published by Ramy Nabil.",
+      "descriptionAr": "تسجيل للكورال بمشاركة أبونا موسى رشدي وساندرا هاني، منشور على قناة رامي نبيل."
+    },
+    {
+      "titleAr": "شفت نورها",
+      "titleEn": "I Saw Her Light",
+      "slug": "sheft-norha",
+      "sort": 1,
+      "album": "i-saw-her-light",
+      "artwork": "archive-2008.webp",
+      "links": [
+        {
+          "platformName": "YouTube",
+          "url": "https://www.youtube.com/watch?v=AraQWqhPXxs",
+          "label": "",
+          "icon": "play"
+        }
+      ],
+      "descriptionEn": "The title track from the choir’s archive, published on YouTube by Freedom Sound Studio.",
+      "descriptionAr": "الترنيمة الرئيسية للإصدار، منشورة على يوتيوب بواسطة Freedom Sound Studio."
+    },
+    {
+      "titleAr": "ترنيمة تجريبية",
+      "titleEn": "Demo Hymn",
+      "slug": "demo-hymn",
+      "album": "demo-album",
+      "artwork": "test.webp",
+      "audio": "demo.mp3",
+      "duration": 8,
+      "preview": true,
+      "descriptionEn": "Generated instrumental audio for testing the player.",
+      "descriptionAr": "عينة نغمات مولّدة لاختبار التشغيل وتقديم وتأخير الصوت."
+    }
+  ],
+  "sources": {
+    "churchAndArchive": "https://www.ahram.org.eg/Egypt/News/120903.aspx",
+    "choirChannel": "https://www.youtube.com/channel/UCOt5zTpmT3VKLye2jLA8pMw",
+    "soundCloud": "https://soundcloud.com/c6qaswvbbco9",
+    "anghami": "https://play.anghami.com/artist/2699042"
+  }
+}

@@ -1,0 +1,12 @@
+**/bin/
+**/obj/
+**/node_modules/
+frontend/dist/
+src/Koral.Api/wwwroot/
+**/App_Data/
+artifacts/
+.env
+*.publishSettings
+*.pubxml.user
+playwright-report/
+test-results/

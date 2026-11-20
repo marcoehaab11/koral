@@ -1,0 +1,39 @@
+{
+  "cover": {
+    "file": "madina-banner.webp",
+    "mobile": "madina-banner-mobile.webp",
+    "source": "https://www.youtube.com/watch?v=WkFMZtkCIJg"
+  },
+  "about": {
+    "file": "choir-in-church.webp",
+    "source": "https://www.youtube.com/watch?v=1e1bCwnEex8",
+    "altEn": "Members of the Youssef El-Seddik Choir singing together inside a church",
+    "altAr": "أعضاء كورال يوسف الصديق يرنمون معًا داخل الكنيسة"
+  },
+  "gallery": [
+    {
+      "file": "madina-outdoors.webp",
+      "source": "https://www.youtube.com/watch?v=WkFMZtkCIJg",
+      "titleEn": "Filming Ya Hosnaha Madina",
+      "titleAr": "من تصوير «يا حسنها مدينة»",
+      "captionEn": "Choir members on location for the video, from the choir's YouTube channel.",
+      "captionAr": "أعضاء الكورال في موقع التصوير. اللقطة من قناة الكورال على يوتيوب."
+    },
+    {
+      "file": "madina-backstage.webp",
+      "source": "https://www.youtube.com/watch?v=WkFMZtkCIJg",
+      "titleEn": "Together on set",
+      "titleAr": "معًا في التصوير",
+      "captionEn": "A moment between choir members in Ya Hosnaha Madina, from the choir's YouTube channel.",
+      "captionAr": "لقطة تجمع أعضاء الكورال في فيديو «يا حسنها مدينة» من قناة الكورال على يوتيوب."
+    },
+    {
+      "file": "choir-concert.webp",
+      "source": "https://www.youtube.com/watch?v=kcC__h8lujs",
+      "titleEn": "Youssef El-Seddik Choir concert",
+      "titleAr": "حفل كورال يوسف الصديق",
+      "captionEn": "The choir on stage on September 19, 2023. Still from the Maseia channel's concert broadcast.",
+      "captionAr": "الكورال على المسرح في ١٩ سبتمبر ٢٠٢٣. اللقطة من تسجيل الحفل على قناة مسيحيا."
+    }
+  ]
+}

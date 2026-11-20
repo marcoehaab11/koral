@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Koral.Api/Koral.Api.csproj" />
+    <Project Path="src/Koral.Application/Koral.Application.csproj" />
+    <Project Path="src/Koral.Domain/Koral.Domain.csproj" />
+    <Project Path="src/Koral.Infrastructure/Koral.Infrastructure.csproj" />
+  </Folder>
+</Solution>
