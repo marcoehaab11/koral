@@ -36,11 +36,16 @@ if (!$profile.PSObject.Properties['coverMobile'] -or !$profile.PSObject.Properti
     throw 'Publish the release supporting the new photo fields first.'
 }
 if (!$profile.coverMobile) {
-    $profile.cover = Import-Asset 'choir' $photos.cover.file
-    $profile.coverMobile = Import-Asset 'choir' $photos.cover.mobile
+    $banner = Import-Asset 'choir' $photos.cover.file
+    $profile.cover = $banner
+    $profile.coverMobile = if ($photos.cover.mobile -eq $photos.cover.file) { $profile.cover } else {
+        Import-Asset 'choir' $photos.cover.mobile
+    }
 }
 if (!$profile.aboutImage) {
-    $profile.aboutImage = Import-Asset 'choir' $photos.about.file
+    $profile.aboutImage = if ($banner -and $photos.about.file -eq $photos.cover.file) {
+        $banner
+    } else { Import-Asset 'choir' $photos.about.file }
     $profile.aboutImageAltEn = $photos.about.altEn
     $profile.aboutImageAltAr = $photos.about.altAr
 }

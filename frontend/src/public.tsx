@@ -65,12 +65,12 @@ function Header() {
 }
 function Footer() {
   const {profile,settings,l,t}=useLocale();
-  return <footer className="site-footer"><div className="shell footer-grid"><div><Brand/>
-    <p>{t(settings.footerEn,settings.footerAr) || t(profile.introEn,profile.introAr)}</p><Platforms links={profile.social} social/></div>
-    <nav aria-label={t('Footer navigation','روابط التذييل')}>
+  return <footer className="site-footer"><div className={'shell footer-grid'+(profile.social?.length?' has-social':'')}><div><Brand/>
+    <p>{t(settings.footerEn,settings.footerAr) || t(profile.introEn,profile.introAr)}</p></div>
+    <nav className="footer-navigation" aria-label={t('Footer navigation','روابط التذييل')}>
       {(['about','albums','songs','gallery','members','events','join'] as const).filter(key=>(key!=='members'||settings.members)&&(key!=='events'||settings.events))
         .map(key=><Link key={key} to={'/'+key}>{l(key)}</Link>)}
-    </nav><Contact/></div><div className="shell footer-end"><span>© {new Date().getFullYear()} {t(profile.nameEn,profile.nameAr)}</span>
+    </nav><Contact/><Platforms links={profile.social} layout="footer"/></div><div className="shell footer-end"><span>© {new Date().getFullYear()} {t(profile.nameEn,profile.nameAr)}</span>
       {!profile.cover&&<a href="https://unsplash.com/photos/a-large-choir-and-musicians-perform-on-a-dark-stage-w1TkFlNKEos" target="_blank" rel="noreferrer">{t('Illustrative choir photograph · Unsplash','صورة توضيحية للكورال · Unsplash')}</a>}
     </div></footer>;
 }
@@ -80,24 +80,33 @@ function Contact() {
   return <address>{profile.email&&<a href={'mailto:'+profile.email}>{profile.email}</a>}{profile.phone&&<a href={'tel:'+profile.phone}>{profile.phone}</a>}
     {t(profile.addressEn,profile.addressAr)&&<span>{t(profile.addressEn,profile.addressAr)}</span>}</address>;
 }
-const socialLogos = new Map([
-  ['facebook', '/media/social/facebook.svg'],
-  ['instagram', '/media/social/instagram.svg'],
-  ['youtube', '/media/social/youtube.svg'],
-  ['anghami', '/media/social/anghami-lockup.png'],
-  ['soundcloud', '/media/social/soundcloud.svg'],
-    ['spotify', '/media/social/spotify.svg'],
-    ['applemusic', '/media/social/applemusic.svg'],
-    ['deezer', '/media/social/deezer.svg'],
-]);
-export function Platforms({links,social=false}:{links:Platform[]|null;social?:boolean}) {
+const platformBrands = [
+  { key:'facebook', name:'Facebook', hosts:['facebook.com','fb.com','fb.me'], file:'facebook.svg' },
+  { key:'instagram', name:'Instagram', hosts:['instagram.com'], file:'instagram.svg' },
+  { key:'youtube', name:'YouTube', hosts:['youtube.com','youtu.be'], file:'youtube.svg' },
+  { key:'anghami', name:'Anghami', hosts:['anghami.com'], file:'anghami-lockup.png' },
+  { key:'soundcloud', name:'SoundCloud', hosts:['soundcloud.com','snd.sc'], file:'soundcloud.svg' },
+  { key:'spotify', name:'Spotify', hosts:['spotify.com','spotify.link','spoti.fi'], file:'spotify.svg' },
+  { key:'applemusic', name:'Apple Music', hosts:['music.apple.com'], file:'applemusic.svg' },
+  { key:'deezer', name:'Deezer', hosts:['deezer.com','deezer.page.link'], file:'deezer.svg' },
+];
+function identifyPlatform(item:Platform) {
+  let host='';
+  try {host=new URL(item.url).hostname;} catch { /* Use the saved platform name for legacy links. */ }
+  const key=item.platformName.toLowerCase().replace(/\s+/g,'');
+  return platformBrands.find(brand=>brand.hosts.some(domain=>host===domain||host.endsWith('.'+domain)))
+    ?? platformBrands.find(brand=>brand.key===key);
+}
+export function Platforms({links,layout='default'}:{links:Platform[]|null;layout?:'default'|'compact'|'footer'}) {
+  const {t}=useLocale();
   if (!links?.length) return null;
-  return <div className={social?'platforms platforms-stacked':'platforms'}>{[...links].sort((a,b)=>a.sort-b.sort).map((item,i)=>{
-    const platform=item.platformName.toLowerCase().replace(/\s+/g,'');
-    const logo=socialLogos.get(platform);
-    const label=item.label||item.platformName;
+  return <div className={'platforms platforms-'+layout} role="group"
+    aria-label={layout==='footer'?t('Choir social links','حسابات الكورال'):t('Available platforms','المنصات المتاحة')}>
+    {[...links].sort((a,b)=>a.sort-b.sort).map((item,i)=>{
+    const brand=identifyPlatform(item);
+    const label=item.label||brand?.name||item.platformName;
     return <a className="platform" key={item.url+i} href={item.url} target="_blank" rel="noopener noreferrer" aria-label={label} title={label}>
-      {logo?<img className={platform==='anghami'?'anghami-mark':undefined} src={logo} width={32} height={32} alt=""/>:label}</a>;
+      {brand?<img className={brand.key==='anghami'?'anghami-mark':undefined} src={'/media/social/'+brand.file} width={32} height={32} alt=""/>:label}</a>;
   })}</div>;
 }
 function Cover({url,kind,className=''}:{url:string;kind?:Resource;className?:string}) {
@@ -127,14 +136,17 @@ function Home() {
   useTitle('');
   const intro=t(profile.introEn,profile.introAr)||t('Choral music, lyrics, and moments from the stage.','موسيقى الكورال وكلمات الأغاني ولحظات من المسرح.');
   return <>
-    <section className={'hero'+(profile.coverMobile?' hero-with-mobile-photo':'')}><Photo cover={profile.cover} mobile={profile.coverMobile} hero/><div className="hero-shade"/>
-      <motion.div className="shell hero-inner" initial={reduce?false:{opacity:0,y:16}} animate={{opacity:1,y:0}} transition={{duration:.55}}>
+    <section className="hero"><div className="shell hero-layout">
+      <motion.div className="hero-inner" initial={reduce?false:{opacity:0,y:16}} animate={{opacity:1,y:0}} transition={{duration:.55}}>
         <div className="hero-kicker">{profile.logo ? <img src={profile.logo} alt=""/> : <AudioLines size={20}/>}
           <span lang={t('ar','en')}>{t(profile.nameAr,profile.nameEn)}</span></div>
         <h1>{t(profile.nameEn,profile.nameAr)}</h1><p>{intro}</p>
         <div className="actions"><Link className="button primary" to="/albums"><Headphones size={18}/>{t('Explore our music','اكتشف موسيقانا')}</Link>
           <Link className="button ghost" to="/about">{t('About the choir','عن الكورال')}</Link></div>
-      </motion.div></section>
+      </motion.div>
+      <div className="hero-media"><Photo cover={profile.cover} mobile={profile.coverMobile} hero
+        alt={profile.cover===profile.aboutImage?t(profile.aboutImageAltEn,profile.aboutImageAltAr):''}/></div>
+    </div></section>
     {settings.homeAlbums && <Section title={t('Featured albums','ألبومات مختارة')} href="/albums"><Preview resource="albums" suffix="?featured=true&size=3"/></Section>}
     {settings.homeSongs && <Section title={t('Latest songs','أحدث الترانيم')} href="/songs"><Preview resource="songs" suffix="?order=latest&size=4" rows/></Section>}
     {settings.homeFeaturedSongs && <Section title={t('Featured songs','ترانيم مختارة')} href="/songs?filter=featured">
@@ -239,7 +251,8 @@ function Cards({items,resource}:{items:Entry[];resource:Resource}) {
         <Cover url={item.image} kind={resource}/>{item.video&&<span className="overlay-play"><Play size={22}/></span>}</button>:
       resource==='albums'?<Link to={'/albums/'+item.slug} aria-label={title}><Cover url={item.image} kind={resource}/></Link>:<Cover url={item.image} kind={resource}/>}
       <div className="card-copy">{item.date&&<span className="metadata">{date(item.date,resource==='albums')}</span>}
-        <h3>{resource==='albums'?<Link to={'/albums/'+item.slug}>{title}</Link>:title}</h3>
+        <div className="media-title-row"><h3>{resource==='albums'?<Link to={'/albums/'+item.slug}>{title}</Link>:title}</h3>
+          {resource==='albums'&&<Platforms links={item.links} layout="compact"/>}</div>
         {resource==='albums'&&item.trackCount>0&&<span className="metadata">{item.trackCount} {t(item.trackCount===1?'track':'tracks','مقطع')}</span>}
         {resource==='members'&&<span className="metadata">{t(item.positionEn,item.positionAr)}</span>}
         {resource==='events'&&<span className="metadata">{[item.location,item.end&&date(item.end),item.status==='cancelled'?t('Cancelled','ملغاة'):item.status==='postponed'?t('Postponed','مؤجلة'):''].filter(Boolean).join(' · ')}</span>}
@@ -261,9 +274,10 @@ function Tracklist({entries}:{entries:Entry[]}) {
   const {t}=useLocale();
   const playback=usePlayback();
   return <div className="tracklist">{entries.map(item=><article className="track" key={item.id}>
-    <Cover url={item.image} kind="songs"/><div className="track-name"><Link to={'/songs/'+item.slug}>{t(item.titleEn,item.titleAr)}</Link>
-      {item.albumSlug&&<Link className="metadata" to={'/albums/'+item.albumSlug}>{t(item.albumTitleEn,item.albumTitleAr)}</Link>}
-      {!!item.links?.length&&<span className="metadata">{item.links.map(x=>x.platformName).join(' · ')}</span>}</div>
+    <Cover url={item.image} kind="songs"/><div className="track-name">
+      <div className="media-title-row"><Link to={'/songs/'+item.slug}>{t(item.titleEn,item.titleAr)}</Link>
+        <Platforms links={item.links} layout="compact"/></div>
+      {item.albumSlug&&<Link className="metadata" to={'/albums/'+item.albumSlug}>{t(item.albumTitleEn,item.albumTitleAr)}</Link>}</div>
     {item.duration&&<span className="metadata" dir="ltr">{clock(item.duration)}</span>}
     {!!sourcesFor(item).length&&<button type="button" className={'icon-button track-play'+(playback.current===item.id?' playing':'')}
       aria-label={t('Play','شغّل')+' '+t(item.titleEn,item.titleAr)}
