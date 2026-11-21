@@ -65,17 +65,33 @@ function Header() {
 }
 function Footer() {
   const {profile,settings,l,t}=useLocale();
-  return <footer className="site-footer"><div className="shell footer-grid"><div className="footer-identity"><Brand/>
-    <p>{t(settings.footerEn,settings.footerAr) || t(profile.introEn,profile.introAr)}</p><Contact/></div>
-    <div className="footer-section"><h2>{t('Explore','تصفّح الموقع')}</h2>
-    <nav className="footer-navigation" aria-label={t('Footer navigation','روابط التذييل')}>
-      {(['about','albums','songs','gallery','members','events','join'] as const).filter(key=>(key!=='members'||settings.members)&&(key!=='events'||settings.events))
-        .map(key=><Link key={key} to={'/'+key}>{l(key)}</Link>)}
-    </nav></div>{!!profile.social?.length&&<div className="footer-section footer-social">
-      <h2>{t('Follow the choir','تابع الكورال')}</h2><Platforms links={profile.social} layout="footer"/>
-    </div>}</div><div className="shell footer-end"><span>© {new Date().getFullYear()} {t(profile.nameEn,profile.nameAr)}</span>
+  const address=t(profile.addressEn,profile.addressAr);
+  const footerCopy=t(settings.footerEn,settings.footerAr)||(!address?t(profile.introEn,profile.introAr):'');
+  const hasSocial=!!profile.social?.length;
+  return <footer className="site-footer"><div className="shell">
+    <div className="footer-grid">
+      <div className="footer-identity">
+        <Brand/>{footerCopy&&<p>{footerCopy}</p>}<Contact/>
+      </div>
+      <div className={'footer-links'+(hasSocial?' has-social':'')}>
+        <div className="footer-section">
+          <h2 id="footer-navigation-heading">{t('Explore','تصفّح الموقع')}</h2>
+          <nav className="footer-navigation" aria-labelledby="footer-navigation-heading">
+            {(['about','albums','songs','gallery','members','events','join'] as const)
+              .filter(key=>(key!=='members'||settings.members)&&(key!=='events'||settings.events))
+              .map(key=><Link key={key} to={'/'+key}>{l(key)}</Link>)}
+          </nav>
+        </div>
+        {hasSocial&&<div className="footer-section footer-social">
+          <h2>{t('Follow the choir','تابع الكورال')}</h2>
+          <Platforms links={profile.social} layout="footer"/>
+        </div>}
+      </div>
+    </div>
+    <div className="footer-end"><span>© {new Date().getFullYear()} {t(profile.nameEn,profile.nameAr)}</span>
       {!profile.cover&&<a href="https://unsplash.com/photos/a-large-choir-and-musicians-perform-on-a-dark-stage-w1TkFlNKEos" target="_blank" rel="noreferrer">{t('Illustrative choir photograph · Unsplash','صورة توضيحية للكورال · Unsplash')}</a>}
-    </div></footer>;
+    </div>
+  </div></footer>;
 }
 function Contact() {
   const {profile,t}=useLocale();
@@ -108,7 +124,8 @@ export function Platforms({links,layout='default'}:{links:Platform[]|null;layout
     {[...links].sort((a,b)=>a.sort-b.sort).map((item,i)=>{
     const brand=identifyPlatform(item);
     const label=layout==='detail'&&brand?t(brand.name,brand.nameAr):item.label||brand?.name||item.platformName;
-    return <a className="platform" key={item.url+i} href={item.url} target="_blank" rel="noopener noreferrer" aria-label={label} title={label}>
+    return <a className="platform" key={item.url+i} href={item.url} target="_blank" rel="noopener noreferrer" aria-label={label} title={label}
+      data-brand={brand?.key}>
       {brand&&<img className={brand.key==='anghami'?'anghami-mark':undefined} src={'/media/social/'+brand.file} width={32} height={32} alt=""/>}
       {(!brand||layout==='detail')&&label}</a>;
   })}</div>;
