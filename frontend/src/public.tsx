@@ -65,12 +65,15 @@ function Header() {
 }
 function Footer() {
   const {profile,settings,l,t}=useLocale();
-  return <footer className="site-footer"><div className={'shell footer-grid'+(profile.social?.length?' has-social':'')}><div><Brand/>
-    <p>{t(settings.footerEn,settings.footerAr) || t(profile.introEn,profile.introAr)}</p></div>
+  return <footer className="site-footer"><div className="shell footer-grid"><div className="footer-identity"><Brand/>
+    <p>{t(settings.footerEn,settings.footerAr) || t(profile.introEn,profile.introAr)}</p><Contact/></div>
+    <div className="footer-section"><h2>{t('Explore','تصفّح الموقع')}</h2>
     <nav className="footer-navigation" aria-label={t('Footer navigation','روابط التذييل')}>
       {(['about','albums','songs','gallery','members','events','join'] as const).filter(key=>(key!=='members'||settings.members)&&(key!=='events'||settings.events))
         .map(key=><Link key={key} to={'/'+key}>{l(key)}</Link>)}
-    </nav><Contact/><Platforms links={profile.social} layout="footer"/></div><div className="shell footer-end"><span>© {new Date().getFullYear()} {t(profile.nameEn,profile.nameAr)}</span>
+    </nav></div>{!!profile.social?.length&&<div className="footer-section footer-social">
+      <h2>{t('Follow the choir','تابع الكورال')}</h2><Platforms links={profile.social} layout="footer"/>
+    </div>}</div><div className="shell footer-end"><span>© {new Date().getFullYear()} {t(profile.nameEn,profile.nameAr)}</span>
       {!profile.cover&&<a href="https://unsplash.com/photos/a-large-choir-and-musicians-perform-on-a-dark-stage-w1TkFlNKEos" target="_blank" rel="noreferrer">{t('Illustrative choir photograph · Unsplash','صورة توضيحية للكورال · Unsplash')}</a>}
     </div></footer>;
 }
@@ -250,9 +253,9 @@ function Cards({items,resource}:{items:Entry[];resource:Resource}) {
       {resource==='gallery'?<button className="media-trigger" onClick={()=>setSelected(item)} aria-label={title}>
         <Cover url={item.image} kind={resource}/>{item.video&&<span className="overlay-play"><Play size={22}/></span>}</button>:
       resource==='albums'?<Link to={'/albums/'+item.slug} aria-label={title}><Cover url={item.image} kind={resource}/></Link>:<Cover url={item.image} kind={resource}/>}
+      {resource==='albums'&&<div className="album-platforms"><Platforms links={item.links} layout="compact"/></div>}
       <div className="card-copy">{item.date&&<span className="metadata">{date(item.date,resource==='albums')}</span>}
-        <div className="media-title-row"><h3>{resource==='albums'?<Link to={'/albums/'+item.slug}>{title}</Link>:title}</h3>
-          {resource==='albums'&&<Platforms links={item.links} layout="compact"/>}</div>
+        <h3>{resource==='albums'?<Link to={'/albums/'+item.slug}>{title}</Link>:title}</h3>
         {resource==='albums'&&item.trackCount>0&&<span className="metadata">{item.trackCount} {t(item.trackCount===1?'track':'tracks','مقطع')}</span>}
         {resource==='members'&&<span className="metadata">{t(item.positionEn,item.positionAr)}</span>}
         {resource==='events'&&<span className="metadata">{[item.location,item.end&&date(item.end),item.status==='cancelled'?t('Cancelled','ملغاة'):item.status==='postponed'?t('Postponed','مؤجلة'):''].filter(Boolean).join(' · ')}</span>}
@@ -275,13 +278,15 @@ function Tracklist({entries}:{entries:Entry[]}) {
   const playback=usePlayback();
   return <div className="tracklist">{entries.map(item=><article className="track" key={item.id}>
     <Cover url={item.image} kind="songs"/><div className="track-name">
-      <div className="media-title-row"><Link to={'/songs/'+item.slug}>{t(item.titleEn,item.titleAr)}</Link>
-        <Platforms links={item.links} layout="compact"/></div>
+      <Link to={'/songs/'+item.slug}>{t(item.titleEn,item.titleAr)}</Link>
       {item.albumSlug&&<Link className="metadata" to={'/albums/'+item.albumSlug}>{t(item.albumTitleEn,item.albumTitleAr)}</Link>}</div>
-    {item.duration&&<span className="metadata" dir="ltr">{clock(item.duration)}</span>}
-    {!!sourcesFor(item).length&&<button type="button" className={'icon-button track-play'+(playback.current===item.id?' playing':'')}
-      aria-label={t('Play','شغّل')+' '+t(item.titleEn,item.titleAr)}
-      onClick={()=>playback.start([item])}><Play size={19}/></button>}
+    <div className="track-platforms"><Platforms links={item.links} layout="compact"/></div>
+    <div className="track-controls">
+      {!!item.duration&&<span className="metadata" dir="ltr">{clock(item.duration)}</span>}
+      {!!sourcesFor(item).length&&<button type="button" className={'icon-button track-play'+(playback.current===item.id?' playing':'')}
+        aria-label={t('Play','شغّل')+' '+t(item.titleEn,item.titleAr)}
+        onClick={()=>playback.start([item])}><Play size={19}/></button>}
+    </div>
   </article>)}</div>;
 }
 function AlbumPlay({album}:{album:Entry}) {
