@@ -14,4 +14,23 @@ public sealed class ChoirApplication
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
     public Guid Revision { get; set; }
+    public int? GroupId { get; set; }
+    public ChoirGroup? Group { get; set; }
+    public string RecordingName { get; set; } = "";
+    public string RecordingType { get; set; } = "";
+    public string BackingAudio { get; set; } = "";
+    public string BackingTitle { get; set; } = "";
+    public bool RecordedWithBacking { get; set; }
+}
+
+public sealed class ChoirGroup
+{
+    public int Id { get; set; }
+    public string NameEn { get; set; } = "";
+    public string NameAr { get; set; } = "";
+    public bool Accepting { get; set; }
+    public bool RecordingRequired { get; set; }
+    public string BackingAudio { get; set; } = "";
+    public string BackingTitle { get; set; } = "";
+    public List<Album> Albums { get; set; } = [];
 }

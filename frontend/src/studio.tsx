@@ -8,6 +8,7 @@ import { ApiError, params, useApi, useLocale, write, type Entry, type Page, type
 import { Brand, Feedback, Language } from './public';
 import { EditorRoute, ProfileRoute, Staff, FormError } from './editor';
 import { ApplicationRoute, ApplicationsList } from './studio-applications';
+import { ChoirGroups } from './studio-groups';
 
 const resources: Resource[]=['albums','songs','gallery','categories','members','events'];
 function Auth({state,change=false}:{state?:Session;change?:boolean}) {
@@ -78,6 +79,7 @@ export default function Studio() {
     <nav aria-label={t('Studio navigation','قائمة الاستوديو')}>
       <NavLink end to="/ADMIN" onClick={()=>setNav(false)}>{l('dashboard')}</NavLink>
       {owner&&<NavLink to="/ADMIN/applications" onClick={()=>setNav(false)}>{l('applications')}</NavLink>}
+      {owner&&<NavLink to="/ADMIN/choir-groups" onClick={()=>setNav(false)}>{l('groups')}</NavLink>}
       {resources.map(key=><NavLink key={key} to={'/ADMIN/'+key} onClick={()=>setNav(false)}>{l(key)}</NavLink>)}
       {owner&&(['choir','settings','users'] as const).map(key=><NavLink key={key} to={'/ADMIN/'+key} onClick={()=>setNav(false)}>{l(key)}</NavLink>)}
       <NavLink to="/ADMIN/password" onClick={()=>setNav(false)}>{l('password')}</NavLink>
@@ -92,6 +94,7 @@ export default function Studio() {
         </Route>)}
         {owner&&<><Route path="choir" element={<ProfileRoute kind="choir"/>}/><Route path="settings" element={<ProfileRoute kind="settings"/>}/>
           <Route path="users" element={<Staff/>}/>
+          <Route path="choir-groups" element={<ChoirGroups/>}/>
           <Route path="applications" element={<ApplicationsList/>}/><Route path="applications/:id" element={<ApplicationRoute/>}/></>}
         <Route path="password" element={<Auth state={user} change/>}/>
         <Route path="*" element={<Feedback error={new ApiError(404,'')}/>}/>

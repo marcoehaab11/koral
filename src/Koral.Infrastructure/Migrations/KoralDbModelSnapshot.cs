@@ -22,6 +22,21 @@ namespace Koral.Infrastructure.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
+            modelBuilder.Entity("AlbumChoirGroup", b =>
+                {
+                    b.Property<int>("AlbumsId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("GroupsId")
+                        .HasColumnType("int");
+
+                    b.HasKey("AlbumsId", "GroupsId");
+
+                    b.HasIndex("GroupsId");
+
+                    b.ToTable("AlbumChoirGroup");
+                });
+
             modelBuilder.Entity("Koral.Domain.Album", b =>
                 {
                     b.Property<int>("Id")
@@ -85,6 +100,40 @@ namespace Koral.Infrastructure.Migrations
                     b.ToTable("Albums");
                 });
 
+            modelBuilder.Entity("Koral.Domain.AlbumPlatformLink", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AlbumId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Label")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Platform")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("Sort")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Url")
+                        .IsRequired()
+                        .HasMaxLength(2048)
+                        .HasColumnType("nvarchar(2048)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AlbumId");
+
+                    b.ToTable("AlbumPlatformLink");
+                });
+
             modelBuilder.Entity("Koral.Domain.AuditLog", b =>
                 {
                     b.Property<long>("Id")
@@ -126,6 +175,14 @@ namespace Koral.Infrastructure.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<string>("BackingAudio")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("BackingTitle")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("datetimeoffset");
 
@@ -138,6 +195,9 @@ namespace Koral.Infrastructure.Migrations
                         .IsRequired()
                         .HasMaxLength(1500)
                         .HasColumnType("nvarchar(1500)");
+
+                    b.Property<int?>("GroupId")
+                        .HasColumnType("int");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -160,6 +220,17 @@ namespace Koral.Infrastructure.Migrations
                         .HasMaxLength(30)
                         .HasColumnType("nvarchar(30)");
 
+                    b.Property<bool>("RecordedWithBacking")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("RecordingName")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("RecordingType")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<Guid>("Revision")
                         .IsConcurrencyToken()
                         .HasColumnType("uniqueidentifier");
@@ -179,12 +250,51 @@ namespace Koral.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("NormalizedEmail")
+                    b.HasIndex("GroupId");
+
+                    b.HasIndex("NormalizedEmail", "GroupId")
                         .IsUnique();
 
                     b.HasIndex("Status", "CreatedAt");
 
                     b.ToTable("ChoirApplications");
+                });
+
+            modelBuilder.Entity("Koral.Domain.ChoirGroup", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("Accepting")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("BackingAudio")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("BackingTitle")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("NameAr")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<string>("NameEn")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<bool>("RecordingRequired")
+                        .HasColumnType("bit");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("ChoirGroups");
                 });
 
             modelBuilder.Entity("Koral.Domain.ChoirMember", b =>
@@ -844,6 +954,40 @@ namespace Koral.Infrastructure.Migrations
                     b.ToTable("AspNetUserTokens", (string)null);
                 });
 
+            modelBuilder.Entity("AlbumChoirGroup", b =>
+                {
+                    b.HasOne("Koral.Domain.Album", null)
+                        .WithMany()
+                        .HasForeignKey("AlbumsId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Koral.Domain.ChoirGroup", null)
+                        .WithMany()
+                        .HasForeignKey("GroupsId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Koral.Domain.AlbumPlatformLink", b =>
+                {
+                    b.HasOne("Koral.Domain.Album", null)
+                        .WithMany("Links")
+                        .HasForeignKey("AlbumId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Koral.Domain.ChoirApplication", b =>
+                {
+                    b.HasOne("Koral.Domain.ChoirGroup", "Group")
+                        .WithMany()
+                        .HasForeignKey("GroupId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Group");
+                });
+
             modelBuilder.Entity("Koral.Domain.GalleryItem", b =>
                 {
                     b.HasOne("Koral.Domain.GalleryCategory", "Category")
@@ -926,6 +1070,8 @@ namespace Koral.Infrastructure.Migrations
 
             modelBuilder.Entity("Koral.Domain.Album", b =>
                 {
+                    b.Navigation("Links");
+
                     b.Navigation("Songs");
                 });
 

@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { Mail, Phone, Search } from 'lucide-react';
-import { ApiError, params, useApi, useLocale, write, type Page } from './data';
+import { ApiError, params, useApi, useLocale, write, type ChoirGroup, type Page } from './data';
+import { AuditionPlayer } from './audition';
 import { Confirm, FormError } from './editor-fields';
 import { Feedback } from './public';
 import { statusLabels, voiceLabels, type Applicant, type ApplicationDetail, type ApplicationStatus } from './recruitment';
@@ -24,8 +25,10 @@ export function ApplicationsList() {
   const [search,setSearch]=useState('');
   const [query,setQuery]=useState('');
   const [status,setStatus]=useState<ApplicationStatus|''>('');
+  const [group,setGroup]=useState('');
   const [page,setPage]=useState(1);
-  const result=useApi<Page<Applicant>>(endpoint+params({q:query,status,page}));
+  const groups=useApi<ChoirGroup[]>('choir-groups');
+  const result=useApi<Page<Applicant>>(endpoint+params({q:query,status,page,group}));
   const data=result.data;
   const pages=data?Math.max(1,Math.ceil(data.total/data.pageSize)):1;
   return <><h1>{l('applications')}</h1><div className="panel list-panel">
@@ -34,15 +37,20 @@ export function ApplicationsList() {
         placeholder={t('Name, email, or phone','الاسم أو البريد أو التليفون')}
         onChange={event=>{setSearch(event.target.value);if(!event.target.value){setQuery('');setPage(1);}}}/></label>
       <StatusSelect filter value={status} change={v=>{setStatus(v);setPage(1);}}/>
+      {!!groups.data?.length&&<label>{l('groups')}<select value={group} onChange={e=>{setGroup(e.target.value);setPage(1);}}>
+        <option value="">{t('All groups','كل الفرق')}</option><option value="0">{t('Unassigned','من غير فرقة')}</option>
+        {groups.data.map(row=><option key={row.id} value={row.id}>{t(row.nameEn,row.nameAr)}</option>)}
+      </select></label>}
       <button className="button outline"><Search size={16}/>{l('search')}</button>
     </form>
     {!data?<Feedback pending={result.isPending} error={result.error} onRetry={()=>result.refetch()}/>:
       <><p className="metadata" role="status">{t('Matching applications','عدد الطلبات المطابقة')} · {data.total}</p>
         {data.items.length?<ul className="applicant-list">{data.items.map(item=><li key={item.id}>
-          <Link to={String(item.id)}><strong dir="auto">{item.name}</strong><span className="metadata" dir="ltr">{item.email}</span></Link>
+          <Link to={String(item.id)}><strong dir="auto">{item.name}</strong><span className="metadata" dir="ltr">{item.email}</span>
+            {item.groupId&&<span className="metadata">{t(item.groupEn,item.groupAr)}</span>}</Link>
           <span className={'status '+(item.status==='accepted'?'published':'')}>{t(statusLabels[item.status][0],statusLabels[item.status][1])}</span>
           <time className="metadata" dateTime={item.createdAt}>{date(item.createdAt)}</time>
-        </li>)}</ul>:<Feedback empty={query||status?t('No applications match these filters.','مفيش طلبات مطابقة للبحث.'):
+        </li>)}</ul>:<Feedback empty={query||status||group?t('No applications match these filters.','مفيش طلبات مطابقة للبحث.'):
           t('New join requests will appear here.','طلبات الانضمام الجديدة هتظهر هنا.')}/>}
         {(page>1||pages>1)&&<nav className="pager" aria-label={t('Application pages','صفحات الطلبات')}>
           <button className="button outline" disabled={page<=1} onClick={()=>setPage(page-1)}>{t('Previous','السابق')}</button>
@@ -82,10 +90,16 @@ function ApplicationEditor({entry,reload}:{entry:ApplicationDetail;reload:()=>Pr
         <div><dt>{t('Email','البريد الإلكتروني')}</dt><dd><a dir="ltr" href={'mailto:'+encodeURIComponent(applicant.email)}><Mail size={16}/>{applicant.email}</a></dd></div>
         {applicant.phone&&<div><dt>{t('Phone','رقم التليفون')}</dt><dd><a dir="ltr" href={'tel:'+applicant.phone.replace(/[ ()]/g,'')}><Phone size={16}/>{applicant.phone}</a></dd></div>}
         <div><dt>{t('Voice part','الطبقة الصوتية')}</dt><dd>{t(voiceLabels[applicant.voice][0],voiceLabels[applicant.voice][1])}</dd></div>
+        {applicant.groupId&&<div><dt>{t('Choir group','فرقة الكورال')}</dt><dd>{t(applicant.groupEn,applicant.groupAr)}</dd></div>}
         <div><dt>{t('Submitted','تاريخ التقديم')}</dt><dd>{date(applicant.createdAt)}</dd></div>
       </dl>
       {entry.experience&&<div><h2>{t('Singing experience','الخبرة في الغنا')}</h2><p className="prose" dir="auto">{entry.experience}</p></div>}
     </section>
+    {entry.recordingUrl&&<section className="panel application-info">
+      <h2>{t('Voice recording','التسجيل الصوتي')}</h2>
+      {entry.backingTitle&&<p>{entry.backingTitle}</p>}
+      <AuditionPlayer voice={entry.recordingUrl} backing={entry.recordedWithBacking?entry.backingAudio:undefined}/>
+    </section>}
     <form className="panel editor" onSubmit={async event=>{
       event.preventDefault();setBusy(true);setSaved(false);setError(undefined);
       try {

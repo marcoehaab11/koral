@@ -1,8 +1,8 @@
 import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link, NavLink, Route, Routes, useLocation, useParams, useSearchParams } from 'react-router-dom';
-import { AudioLines, CalendarDays, Camera, Disc3, ExternalLink, Headphones, Menu, Music2, Play, Search, X } from 'lucide-react';
+import { AudioLines, CalendarDays, Camera, Disc3, Headphones, Menu, Music2, Play, Search, X } from 'lucide-react';
 import { motion, useReducedMotion } from 'framer-motion';
-import { ApiError, api, params, useApi, useLocale, type Entry, type Page, type Platform, type Resource } from './data';
+import { ApiError, api, params, useApi, useLocale, type ChoirGroup, type Entry, type Page, type Platform, type Resource } from './data';
 
 import { clock } from './audio-player';
 import { PlaybackProvider, usePlayback } from './playback';
@@ -84,17 +84,19 @@ const socialLogos = new Map([
   ['facebook', '/media/social/facebook.svg'],
   ['instagram', '/media/social/instagram.svg'],
   ['youtube', '/media/social/youtube.svg'],
-  ['anghami', '/media/social/anghami.svg'],
+  ['anghami', '/media/social/anghami.png'],
   ['soundcloud', '/media/social/soundcloud.svg'],
+    ['spotify', '/media/social/spotify.svg'],
+    ['applemusic', '/media/social/applemusic.svg'],
+    ['deezer', '/media/social/deezer.svg'],
 ]);
 export function Platforms({links,social=false}:{links:Platform[]|null;social?:boolean}) {
   if (!links?.length) return null;
-  return <div className="platforms">{[...links].sort((a,b)=>a.sort-b.sort).map((item,i)=>{
-    const logo=social?socialLogos.get(item.platformName.toLowerCase().replace(/\s+/g,'')):undefined;
-    return <a className="platform" key={item.url+i} href={item.url} target="_blank" rel="noopener noreferrer">
-      {logo?<img src={logo} width={16} height={16} alt=""/>:
-        item.icon==='play'?<Play size={14}/>:item.icon==='music'?<Music2 size={14}/>:<ExternalLink size={14}/>}
-      {item.label||item.platformName}</a>;
+  return <div className={social?'platforms platforms-stacked':'platforms'}>{[...links].sort((a,b)=>a.sort-b.sort).map((item,i)=>{
+    const logo=socialLogos.get(item.platformName.toLowerCase().replace(/\s+/g,''));
+    const label=item.label||item.platformName;
+    return <a className="platform" key={item.url+i} href={item.url} target="_blank" rel="noopener noreferrer" aria-label={label} title={label}>
+      {logo?<img src={logo} width={32} height={32} alt=""/>:label}</a>;
   })}</div>;
 }
 function Cover({url,kind,className=''}:{url:string;kind?:Resource;className?:string}) {
@@ -186,11 +188,14 @@ function Index({resource}:{resource:Resource}) {
   const q=state.get('q')??'';
   const filter=state.get('filter')??'';
   const year=state.get('year')??'';
+  const group=state.get('group')??'';
   const sorting=state.get('sort')??'';
   const allowed=resource==='members'?settings.members:resource==='events'?settings.events:true;
   const categories=useApi<Page<Entry>>('categories?size=100',resource==='gallery');
+  const groups=useApi<ChoirGroup[]>('choir-groups',resource==='albums');
   const query=useApi<Page<Entry>>(resource+params({q,page,size:12,featured:(resource==='albums'||resource==='songs')&&filter==='featured'?true:undefined,
-    year:resource==='albums'?year:undefined,category:resource==='gallery'&&Number(filter)>0?filter:undefined,
+    year:resource==='albums'?year:undefined,group:resource==='albums'&&Number(group)>0?group:undefined,
+    category:resource==='gallery'&&Number(filter)>0?filter:undefined,
     upcoming:resource==='events'?filter!=='past':undefined,order:resource==='events'?(filter==='past'?'latest':'date'):sorting}),allowed);
   useTitle(l(resource));
   function update(key:string,value:string) {
@@ -206,6 +211,9 @@ function Index({resource}:{resource:Resource}) {
       <option value="">{resource==='albums'?t('All albums','كل الألبومات'):t('All songs','كل الأغاني')}</option>
       <option value="featured">{t('Featured','مختارة')}</option></select>}
     {resource==='albums'&&<input type="number" min="1" max="9999" aria-label={t('Release year','سنة الإصدار')} placeholder={t('Release year','سنة الإصدار')} value={year} onChange={e=>update('year',e.target.value)}/>}
+    {resource==='albums'&&!!groups.data?.length&&<select aria-label={l('groups')} value={group} onChange={e=>update('group',e.target.value)}>
+      <option value="">{t('All choir groups','كل فرق الكورال')}</option>
+      {groups.data.map(x=><option key={x.id} value={x.id}>{t(x.nameEn,x.nameAr)}</option>)}</select>}
     {resource==='gallery'&&<><select aria-label={l('categories')} value={filter} onChange={e=>update('filter',e.target.value)}>
       <option value="">{t('All categories','كل التصنيفات')}</option>{categories.data?.items.map(x=><option key={x.id} value={x.id}>{t(x.titleEn,x.titleAr)}</option>)}</select>
       <select aria-label={t('Sort gallery','ترتيب المعرض')} value={sorting} onChange={e=>update('sort',e.target.value)}>

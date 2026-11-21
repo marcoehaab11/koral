@@ -23,6 +23,7 @@ public sealed class KoralDb(DbContextOptions<KoralDb> options) : IdentityDbConte
     public DbSet<AuditLog> Audit => Set<AuditLog>();
     public DbSet<MediaAsset> Media => Set<MediaAsset>();
     public DbSet<ChoirApplication> ChoirApplications => Set<ChoirApplication>();
+    public DbSet<ChoirGroup> ChoirGroups => Set<ChoirGroup>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -37,8 +38,12 @@ public sealed class KoralDb(DbContextOptions<KoralDb> options) : IdentityDbConte
         application.Property(x => x.Experience).HasMaxLength(1500);
         application.Property(x => x.Notes).HasMaxLength(4000);
         application.Property(x => x.Revision).IsConcurrencyToken();
-        application.HasIndex(x => x.NormalizedEmail).IsUnique();
+        application.HasIndex(x => new { x.NormalizedEmail, x.GroupId }).IsUnique().HasFilter(null);
+        application.HasOne(x => x.Group).WithMany().OnDelete(DeleteBehavior.Restrict);
         application.HasIndex(x => new { x.Status, x.CreatedAt });
+        b.Entity<ChoirGroup>().Property(x => x.NameEn).HasMaxLength(120);
+        b.Entity<ChoirGroup>().Property(x => x.NameAr).HasMaxLength(120);
+        b.Entity<AlbumPlatformLink>().Property(x => x.Url).HasMaxLength(2048);
         b.Entity<ChoirProfile>().Property(x => x.Id).ValueGeneratedNever();
         b.Entity<SiteSetting>().Property(x => x.Id).ValueGeneratedNever();
         Configure<Album>(b);
@@ -78,8 +83,11 @@ public sealed class LocalMediaStorage : Koral.Application.IMediaStorage
     }
     private string FilePath(string bucket, string name)
     {
-        if (bucket is not ("choir" or "albums" or "songs" or "gallery" or "members" or "audio" or "events")
-            || !System.Text.RegularExpressions.Regex.IsMatch(name, @"^[a-f0-9]{32}\.(jpg|png|webp|mp3|mp4)$"))
+        var allowed = bucket == "auditions"
+            ? System.Text.RegularExpressions.Regex.IsMatch(name, @"^[a-f0-9]{32}\.(webm|ogg|m4a|wav|mp3)$")
+            : bucket is "choir" or "albums" or "songs" or "gallery" or "members" or "audio" or "events"
+                && System.Text.RegularExpressions.Regex.IsMatch(name, @"^[a-f0-9]{32}\.(jpg|png|webp|mp3|mp4)$");
+        if (!allowed)
             throw new ArgumentException("Invalid media path.");
         return Path.Combine(_root, bucket, name);
     }

@@ -5,6 +5,7 @@ param(
     [PSCredential]$Credential,
     [switch]$Development,
     [switch]$IncludePreview,
+    [switch]$AlbumLinksOnly,
     [switch]$RefreshBrandAssets
 )
 
@@ -55,6 +56,19 @@ function Find-Entry($kind,$row) {
 $user = Write-Api 'auth/login' 'POST' @{ email = $Credential.UserName; password = $Credential.GetNetworkCredential().Password }
 if ($user.mustChangePassword -or 'SuperAdmin' -notin $user.roles) { throw 'Use a Super Admin who has already completed the required password change.' }
 
+if ($AlbumLinksOnly) {
+    foreach ($row in $seed.albums | Where-Object links) {
+        $existing = Find-Entry 'albums' $row
+        if (!$existing) { throw "Missing album: $($row.slug)" }
+        $newLinks = @($row.links | Where-Object { $_.platformName -notin $existing.links.platformName })
+        if (!$newLinks.Count) { continue }
+        $existing.links = @($existing.links | Where-Object { $_ }) + $newLinks
+        $null = Write-Api "admin/albums/$($existing.id)" 'PUT' $existing
+        Write-Output "Added full album links: $($row.titleEn)"
+    }
+    return
+}
+
 $profile = Read-Api 'admin/choir'
 $settings = Read-Api 'admin/settings'
 $firstImport = $profile.nameEn -ne $seed.profile.nameEn
@@ -77,7 +91,7 @@ foreach ($row in $seed.albums) {
             titleAr = $row.titleAr; titleEn = $row.titleEn; slug = $row.slug
             descriptionAr = $row.descriptionAr; descriptionEn = $row.descriptionEn
             image = (Import-Asset 'albums' $row.artwork); published = $true
-            featured = [bool]($row.featured -or $row.preview); sort = $albumIds.Count
+            featured = [bool]($row.featured -or $row.preview); sort = $albumIds.Count; links = $row.links
         }
         Write-Output "Added album: $($row.titleEn)"
     }

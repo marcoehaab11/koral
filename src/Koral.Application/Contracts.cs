@@ -11,7 +11,7 @@ public sealed record Content(
     List<Platform>? Links = null, int? CategoryId = null, string Video = "", string PositionEn = "", string PositionAr = "",
     DateTimeOffset? End = null, string Location = "", string Registration = "", string Status = "scheduled",
     int TrackCount = 0, string AlbumTitleEn = "", string AlbumTitleAr = "", string AlbumSlug = "", DateTimeOffset? UpdatedAt = null,
-    string CaptionEn = "", string CaptionAr = "");
+    string CaptionEn = "", string CaptionAr = "", List<int>? GroupIds = null);
 public sealed record Profile(string NameEn = "Koral Choir", string NameAr = "كورال", string Logo = "", string Cover = "",
     string IntroEn = "", string IntroAr = "", string AboutEn = "", string AboutAr = "",
     int? Founded = null, string HistoryEn = "", string HistoryAr = "", string MissionEn = "", string MissionAr = "",
@@ -49,6 +49,13 @@ public sealed class ContentValidator : AbstractValidator<Content>
         RuleFor(x => x.Sort).InclusiveBetween(0, 100000);
         if (resource is "albums" or "songs")
             RuleFor(x => x.Slug).NotEmpty().MaximumLength(160).Matches(@"^[a-z0-9]+(-[a-z0-9]+)*$");
+        if (resource == "albums")
+        {
+            RuleFor(x => x.GroupIds).Must(ids => ids is null || (ids.Count <= 50 && ids.All(id => id > 0)));
+            RuleFor(x => x.Links).Must(links => links is null || links.Count <= 12);
+            RuleForEach(x => x.Links).NotNull().SetValidator(new PlatformValidator())
+                .Must(IsAlbumLink).WithMessage("Use a full album or playlist link for this platform.");
+        }
         if (resource == "songs")
         {
             RuleFor(x => x.Audio).Must(x => InputRules.Media(x) && (x.Length == 0 || x.StartsWith("/uploads/audio/"))).WithMessage("Select an uploaded audio file.");
@@ -82,6 +89,26 @@ public sealed class ContentValidator : AbstractValidator<Content>
             RuleFor(x => x.Location).NotNull().MaximumLength(240);
             RuleFor(x => x.Registration).Must(x => x == "" || InputRules.SafeUrl(x)).WithMessage("Enter a valid registration URL.");
         }
+    }
+
+    private static bool IsAlbumLink(Platform? link)
+    {
+        if (link is null || !Uri.TryCreate(link.Url, UriKind.Absolute, out var url) || url.Scheme != "https")
+            return false;
+        var parts = url.AbsolutePath.Trim('/').Split('/');
+        var platform = link.PlatformName?.Trim().ToLowerInvariant();
+        return platform switch
+        {
+            "spotify" => url.Host == "open.spotify.com" && parts.Length >= 2 &&
+                parts[^2] is "album" or "playlist",
+            "youtube" => url.Host is "www.youtube.com" or "youtube.com" or "music.youtube.com" &&
+                parts[^1] == "playlist" && url.Query.TrimStart('?').Split('&').Any(q => q.StartsWith("list=") && q.Length > 5),
+            "soundcloud" or "sound cloud" => url.Host is "soundcloud.com" or "www.soundcloud.com" &&
+                parts.Length == 3 && parts[1] == "sets",
+            "anghami" => url.Host is "play.anghami.com" or "www.anghami.com" &&
+                parts.Length >= 2 && parts[^2] is "album" or "playlist",
+            _ => true,
+        };
     }
 }
 public sealed class PlatformValidator : AbstractValidator<Platform>

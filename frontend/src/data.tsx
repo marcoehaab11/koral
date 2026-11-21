@@ -10,8 +10,10 @@ export type Entry = {
   duration: number | null; links: Platform[] | null; categoryId: number | null; video: string;
   positionEn: string; positionAr: string; end: string | null; location: string; registration: string; status: string;
   trackCount: number; albumSlug: string; albumTitleEn: string; albumTitleAr: string; updatedAt: string | null;
-  captionEn: string; captionAr: string;
+  captionEn: string; captionAr: string; groupIds?: number[] | null;
 };
+export type ChoirGroup = { id: number; nameEn: string; nameAr: string; accepting: boolean;
+  recordingRequired: boolean; backingAudio: string; backingTitle: string };
 export type Profile = {
   nameEn: string; nameAr: string; logo: string; cover: string; introEn: string; introAr: string;
   aboutEn: string; aboutAr: string; founded: number | null; historyEn: string; historyAr: string; missionEn: string;
@@ -28,7 +30,7 @@ export type Page<T> = { items: T[]; total: number; pageNumber: number; pageSize:
 export type Session = { email: string; mustChangePassword: boolean; roles: string[] };
 export type Resource = 'albums' | 'songs' | 'gallery' | 'categories' | 'members' | 'events';
 export const labels = {
-  join: ['Join the choir','انضم للكورال'], applications: ['Join applications','طلبات الانضمام'],
+  join: ['Join the choir','انضم للكورال'], applications: ['Join applications','طلبات الانضمام'], groups: ['Choir groups','فرق الكورال'],
   home: ['Home','الرئيسية'], about: ['About','عن الكورال'], albums: ['Albums','الألبومات'], songs: ['Songs','الترانيم'],
   gallery: ['Gallery','المعرض'], members: ['Members','الأعضاء'], events: ['Events','الفعاليات'], search: ['Search','البحث'],
   categories: ['Gallery categories','تصنيفات المعرض'], dashboard: ['Overview','نظرة عامة'], choir: ['Choir profile','ملف الكورال'],
@@ -57,8 +59,10 @@ export async function api<T>(path: string, options?: RequestInit): Promise<T> {
 }
 export async function write<T>(path: string, method: string, data?: unknown) {
   const { token } = await api<{token:string}>('auth/csrf');
-  return api<T>(path, { method, headers: { 'X-CSRF-TOKEN': token, 'Content-Type': 'application/json' },
-    body: data === undefined ? undefined : JSON.stringify(data) });
+  const headers: Record<string,string> = { 'X-CSRF-TOKEN': token };
+  if (data instanceof FormData) return api<T>(path, { method, headers, body:data });
+  headers['Content-Type'] = 'application/json';
+  return api<T>(path, { method, headers, body: data === undefined ? undefined : JSON.stringify(data) });
 }
 export async function upload(bucket: string, file: File, progress: (n:number)=>void) {
   const { token } = await api<{token:string}>('auth/csrf');

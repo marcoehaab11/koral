@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { ArrowUp, ArrowDown } from 'lucide-react';
 import { z } from 'zod';
-import { ApiError, params, useApi, useLocale, write, type Entry, type Page, type Platform, type Resource } from './data';
+import { ApiError, params, useApi, useLocale, write, type ChoirGroup, type Entry, type Page, type Platform, type Resource } from './data';
 import { Feedback } from './public';
 import { Confirm, FieldInput, Fieldset, FormError, MediaField, PlatformFields, Toggle, field, pair, text, type Field } from './editor-fields';
 export { FormError } from './editor-fields';
@@ -11,7 +11,7 @@ export { ProfileRoute, Staff } from './profile-editor';
 
 const initial:Partial<Entry>={titleEn:'',titleAr:'',descriptionEn:'',descriptionAr:'',image:'',audio:'',lyricsEn:'',lyricsAr:'',
   composer:'',lyricist:'',arranger:'',conductor:'',slug:'',positionEn:'',positionAr:'',location:'',registration:'',video:'',
-  links:[],published:false,featured:false,sort:0,status:'scheduled'};
+  links:[],groupIds:[],published:false,featured:false,sort:0,status:'scheduled'};
 const fields:Record<Resource,Field[]> = {
   albums:[field('slug','URL slug','رابط الصفحة','slug',true),field('date','Release date','تاريخ الإصدار','date')],
   songs:[field('slug','URL slug','رابط الصفحة','slug',true),field('date','Release date','تاريخ الإصدار','date'),
@@ -49,11 +49,13 @@ function Editor({resource,item}:{resource:Resource;item?:Entry}) {
   const query=useQueryClient();
   const navigate=useNavigate();
   const path='admin/'+resource+(item?'/'+item.id:'');
+  const groups=useApi<ChoirGroup[]>('choir-groups',resource==='albums');
   const set=(key:string,value:unknown)=>{setSaved(false);setData(d=>({...d,[key]:value}));};
   const input=(f:Field)=><FieldInput key={f.key} item={f} value={data[f.key]} change={v=>set(f.key,v)}/>;
   const media=(key:string,title:string,bucket:string,kind:'image'|'audio'|'video')=><MediaField title={title} value={text(data[key])}
     bucket={bucket} kind={kind} busy={delta=>setUploads(n=>n+delta)} change={v=>set(key,v)}/>;
   const links=(data.links??[]) as Platform[];
+  const groupIds=(data.groupIds??[]) as number[];
   async function save(event:FormEvent<HTMLFormElement>){
     event.preventDefault();setError(undefined);setSaved(false);
     const validation=z.object({titleEn:z.string().trim().min(1).max(180),titleAr:z.string().trim().min(1).max(180)}).safeParse(data);
@@ -90,6 +92,14 @@ function Editor({resource,item}:{resource:Resource;item?:Entry}) {
       </Fieldset>}
       {resource==='songs'&&<><Fieldset title={t('Lyrics','الكلمات')}>{pair('lyrics','Lyrics','الكلمات','textarea').map(input)}</Fieldset>
         <Fieldset title={t('Streaming platforms','منصات الاستماع')}><PlatformFields value={links} change={v=>set('links',v)}/></Fieldset></>}
+      {resource==='albums'&&<>
+        <Fieldset title={l('groups')}>
+          {groups.data?.length?groups.data.map(group=><Toggle key={group.id} title={t(group.nameEn,group.nameAr)}
+            checked={groupIds.includes(group.id)} change={checked=>set('groupIds',checked?[...groupIds,group.id]:groupIds.filter(id=>id!==group.id))}/>):
+            <Feedback pending={groups.isPending} error={groups.error} empty={t('No choir groups have been created yet.','لسه مفيش فرق اتعملت.')}/>}
+        </Fieldset>
+        <Fieldset title={t('Full album links','روابط الألبوم بالكامل')}><PlatformFields album value={links} change={v=>set('links',v)}/></Fieldset>
+      </>}
       <Fieldset title={t('Publishing','النشر')}>
         <Toggle checked={Boolean(data.published)} title={t('Published','منشور')} change={v=>set('published',v)}/>
         <Toggle checked={Boolean(data.featured)} title={t('Featured','مميز')} change={v=>set('featured',v)}/>

@@ -19,7 +19,9 @@ export type Voice = keyof typeof voiceLabels;
 export type ApplicationStatus = keyof typeof statusLabels;
 export type Applicant = {
   id: number; name: string; email: string; phone: string; voice: Voice; status: ApplicationStatus; createdAt: string;
+  groupId: number | null; groupEn: string; groupAr: string;
 };
 export type ApplicationDetail = {
   applicant: Applicant; experience: string; notes: string; revision: string; updatedAt: string;
+  recordingUrl: string; backingAudio: string; backingTitle: string; recordedWithBacking: boolean;
 };

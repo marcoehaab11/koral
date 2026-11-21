@@ -19,6 +19,17 @@ public sealed class Album : Entry
     public string Slug { get; set; } = "";
     public DateTimeOffset? Date { get; set; }
     public List<Song> Songs { get; set; } = [];
+    public List<AlbumPlatformLink> Links { get; set; } = [];
+    public List<ChoirGroup> Groups { get; set; } = [];
+}
+public sealed class AlbumPlatformLink
+{
+    public int Id { get; set; }
+    public int AlbumId { get; set; }
+    public string Platform { get; set; } = "";
+    public string Url { get; set; } = "";
+    public string Label { get; set; } = "";
+    public int Sort { get; set; }
 }
 public sealed class Song : Entry
 {

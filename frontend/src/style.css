@@ -118,8 +118,12 @@ textarea{resize:vertical}
 .credits div{display:grid;grid-template-columns:1fr 1fr;gap:10px;border-block-end:1px solid var(--line);padding-block:9px}
 .credits dd{margin:0}
 .platforms{display:flex;flex-wrap:wrap;gap:8px;margin-block:13px}
-.platform{display:inline-flex;align-items:center;gap:7px;border:1px solid currentColor;border-radius:4px;padding:6px 10px;font-weight:600;font-size:.88rem;overflow-wrap:anywhere}
+.platforms-stacked{flex-direction:column;align-items:flex-start;gap:4px}
+.platform{display:inline-flex;align-items:center;justify-content:center;min-inline-size:44px;min-block-size:44px;font-weight:600;font-size:.88rem;overflow-wrap:anywhere}
 .platform img{flex:none;object-fit:contain}
+.join-audition{min-inline-size:0;display:grid;gap:12px;border:1px solid var(--line);padding:16px}
+.join-audition audio[controls],.audition-player audio[controls]{display:block;inline-size:100%;max-inline-size:380px}
+.audition-player{display:grid;gap:8px}
 .platform:hover{text-decoration:underline}
 .recording-embed iframe{display:block;border:0;inline-size:100%;aspect-ratio:16/9;margin-block-start:12px}
 .recording-embed iframe.music{aspect-ratio:auto;block-size:152px}

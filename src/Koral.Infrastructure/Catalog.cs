@@ -36,7 +36,8 @@ public sealed class Catalog(KoralDb db)
     {
         IQueryable<Entry> q = resource switch
         {
-            "albums" => db.Albums.Include(x => x.Songs), "songs" => db.Songs.Include(x => x.Album).Include(x => x.Links),
+            "albums" => db.Albums.Include(x => x.Songs).Include(x => x.Links).Include(x => x.Groups).AsSplitQuery(),
+            "songs" => db.Songs.Include(x => x.Album).Include(x => x.Links),
             "gallery" => db.Gallery.Include(x => x.Category), "categories" => db.Categories, "members" => db.Members, "events" => db.Events,
             _ => throw new ArgumentException("Unknown resource.")
         };
@@ -48,7 +49,9 @@ public sealed class Catalog(KoralDb db)
             e.Published, e.Featured, e.Sort, UpdatedAt: e.UpdatedAt);
         return e switch
         {
-            Album a => item with { Slug = a.Slug, Date = a.Date, TrackCount = a.Songs.Count(s => admin || s.Published) },
+            Album a => item with { Slug = a.Slug, Date = a.Date, TrackCount = a.Songs.Count(s => admin || s.Published),
+                Links = a.Links.OrderBy(l => l.Sort).ThenBy(l => l.Id).Select(l => new Platform(l.Platform, l.Url, l.Label, Sort: l.Sort)).ToList(),
+                GroupIds = a.Groups.Select(g => g.Id).Order().ToList() },
             Song s => item with {
                 Slug = s.Slug, Date = s.Date, AlbumId = admin || s.Album?.Published == true ? s.AlbumId : null,
                 AlbumTitleEn = admin || s.Album?.Published == true ? s.Album?.TitleEn ?? "" : "",
@@ -67,7 +70,8 @@ public sealed class Catalog(KoralDb db)
     }
 
     public async Task<Page<Content>> List(string resource, bool admin, string? search, int page, int size,
-        bool? featured = null, int? album = null, int? category = null, int? year = null, string? order = null, bool? upcoming = null)
+        bool? featured = null, int? album = null, int? category = null, int? year = null, string? order = null, bool? upcoming = null,
+        int? group = null)
     {
         page = Math.Clamp(page, 1, 1000000);
         size = Math.Clamp(size, 1, 100);
@@ -79,6 +83,7 @@ public sealed class Catalog(KoralDb db)
         }
         if (featured == true) q = q.Where(x => x.Featured);
         if (album.HasValue && resource == "songs") q = q.OfType<Song>().Where(x => x.AlbumId == album);
+        if (group.HasValue && resource == "albums") q = q.OfType<Album>().Where(x => x.Groups.Any(g => g.Id == group));
         if (category.HasValue && resource == "gallery")
             q = q.OfType<GalleryItem>().Where(x => x.CategoryId == category && (admin || x.Category!.Published));
         if (year is >= 1 and <= 9999 && resource == "albums") q = q.OfType<Album>().Where(x => x.Date!.Value.Year == year);
@@ -135,6 +140,19 @@ public sealed class Catalog(KoralDb db)
         {
             case Album a:
                 if (await db.Albums.AnyAsync(x => x.Id != id && x.Slug == input.Slug)) return (null, "slug", false);
+                if (input.GroupIds is not null)
+                {
+                    var groupIds = input.GroupIds.Distinct().ToArray();
+                    var groups = await db.ChoirGroups.Where(g => groupIds.Contains(g.Id)).ToListAsync();
+                    if (groups.Count != groupIds.Length) return (null, "groupIds", false);
+                    a.Groups = groups;
+                }
+                if (input.Links is not null)
+                {
+                    a.Links.Clear();
+                    foreach (var link in input.Links) a.Links.Add(new AlbumPlatformLink
+                        { Platform = link.PlatformName.Trim(), Url = link.Url, Label = link.Label, Sort = link.Sort });
+                }
                 (a.Slug, a.Date) = (input.Slug, input.Date);
                 break;
             case Song s:

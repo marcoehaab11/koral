@@ -1,6 +1,8 @@
 import { expect, test } from '@playwright/test';
 import { fileURLToPath } from 'node:url';
 
+test.use({launchOptions:{args:['--use-fake-device-for-media-stream','--use-fake-ui-for-media-stream']}});
+
 test('bilingual application reaches the private CRM and remains editable after reload', async ({page,request}) => {
   expect((await request.get('/api/admin/applications')).status()).toBe(401);
   expect((await request.post('/api/join',{data:{name:'Salma Example'}})).status()).toBe(400);
@@ -70,4 +72,62 @@ test('bilingual application reaches the private CRM and remains editable after r
   await page.getByRole('button',{name:'Delete application',exact:true}).click();
   await page.getByRole('button',{name:'Confirm deletion'}).click();
   await expect(page.getByText('New join requests will appear here.')).toBeVisible();
+});
+
+test.describe('group auditions', () => {
+  test('assigns an album and a private accompanied recording to a choir group', async ({page,request,context}) => {
+    await context.grantPermissions(['microphone']);
+    await page.goto('/ADMIN/login');
+    await page.getByLabel('Email',{exact:true}).fill('admin@admin.com');
+    await page.getByLabel('Password',{exact:true}).fill('Admin@123456');
+    await page.getByRole('button',{name:'Sign in',exact:true}).click();
+    await page.getByRole('link',{name:'Choir groups',exact:true}).click();
+    await page.getByLabel('Name in English').fill('Adult choir');
+    await page.getByLabel('Name in Arabic').fill('كورال الكبار');
+    await page.getByLabel('Require a voice recording').check();
+    await page.getByLabel('Backing track (MP3)',{exact:true}).setInputFiles(fileURLToPath(new URL('./fixtures/tone.mp3',import.meta.url)));
+    await page.getByLabel('Backing track title').fill('Practice melody');
+    await page.getByRole('button',{name:'Save choir group'}).click();
+    await expect(page.getByLabel('Select a choir group')).not.toHaveValue('0');
+    const groupId=Number(await page.getByLabel('Select a choir group').inputValue());
+
+    const links=[{platformName:'Spotify',url:'https://open.spotify.com/playlist/37i9dQZF1DX4Wsb4d7NKfP',label:'Spotify',sort:0}];
+    const album={titleEn:'Group album',titleAr:'ألبوم الفرقة',slug:'group-album',published:true,groupIds:[groupId],links};
+    const token=(await (await page.request.get('/api/auth/csrf')).json()).token;
+    const headers={'X-CSRF-TOKEN':token};
+    const trackOnly={...album,links:[{...links[0],url:'https://open.spotify.com/track/37i9dQZF1DX4Wsb4d7NKfP'}]};
+    expect((await page.request.post('/api/admin/albums',{headers,data:trackOnly})).status()).toBe(400);
+    expect((await page.request.post('/api/admin/albums',{headers,data:album})).status()).toBe(201);
+    await page.goto('/albums?group='+groupId);
+    await page.getByRole('heading',{name:'Group album',exact:true}).getByRole('link').click();
+    await expect(page.getByRole('link',{name:'Spotify',exact:true})).toHaveAttribute('href',links[0].url);
+
+    await page.setViewportSize({width:390,height:844});
+    await page.goto('/join');
+    await page.getByLabel('Choose a choir group').selectOption(String(groupId));
+    await page.getByLabel('Full name',{exact:true}).fill('Audition Example');
+    await page.getByLabel('Email',{exact:true}).fill('audition@example.test');
+    await page.getByRole('checkbox').check();
+    await page.getByRole('button',{name:'Send application'}).click();
+    await expect(page.getByRole('alert')).toContainText('Add a voice recording');
+    await page.getByRole('button',{name:'Start recording'}).click();
+    await expect(page.getByRole('timer')).toContainText('1 / 90');
+    await page.screenshot({path:fileURLToPath(new URL('../../artifacts/visual/audition-mobile.png',import.meta.url)),fullPage:true});
+    await page.getByRole('button',{name:'Stop recording'}).click();
+    await expect(page.getByLabel('Voice recording',{exact:true})).toBeVisible();
+    await page.getByRole('button',{name:'Send application'}).click();
+    await expect(page.getByRole('heading',{name:'Application received'})).toBeVisible();
+
+    await page.goto('/ADMIN/applications');
+    await page.getByRole('combobox',{name:'Choir groups',exact:true}).selectOption(String(groupId));
+    await page.getByRole('link',{name:/Audition Example/}).click();
+    await expect(page.getByRole('button',{name:'Play voice with backing track'})).toBeVisible();
+    const path='/api/admin/applications/'+page.url().split('/').at(-1)+'/recording';
+    expect((await request.get(path)).status()).toBe(401);
+    const media=await page.request.get(path,{headers:{Range:'bytes=0-11'}});
+    expect(media.status()).toBe(206);
+    expect(media.headers()['cache-control']).toContain('no-store');
+    await page.getByRole('button',{name:'Play voice with backing track'}).click();
+    await expect(page.getByRole('button',{name:'Listen to voice only'})).toBeVisible();
+  });
 });

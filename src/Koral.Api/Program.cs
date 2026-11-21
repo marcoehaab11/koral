@@ -88,6 +88,7 @@ if (development) { app.UseSwagger(); app.UseSwaggerUI(); }
 app.MapSessions();
 app.MapContent();
 app.MapRecruitment();
+app.MapChoirGroups();
 app.MapMedia(maxUpload);
 app.MapPages();
 if (!EF.IsDesignTime)

@@ -11,6 +11,7 @@ type Queue={items:QueueItem[];index:number;source:number;revision:number};
 type Actions={
   begin:()=>number;
   start:(entries:Entry[],token?:number)=>boolean;
+  close:()=>void;
   current:number|undefined;
 };
 const Playback=createContext<Actions|null>(null);
@@ -35,7 +36,7 @@ export function PlaybackProvider({children}:{children:ReactNode}) {
     return true;
   },[begin,nextRevision]);
   function close(){begin();setQueue(undefined);}
-  return <Playback.Provider value={{begin,start,current:queue?.items[queue.index].entry.id}}>
+  return <Playback.Provider value={{begin,start,close,current:queue?.items[queue.index].entry.id}}>
     {children}
     {queue&&<PlaybackDock queue={queue} update={setQueue} close={close} nextRevision={nextRevision}/>}
   </Playback.Provider>;

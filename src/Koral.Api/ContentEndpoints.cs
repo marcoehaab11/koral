@@ -15,10 +15,10 @@ public static class ContentEndpoints
         foreach (var resource in Catalog.Resources)
         {
             app.MapGet("/api/" + resource, async (Catalog catalog, string? q, int? page, int? size, bool? featured,
-                int? album, int? category, int? year, string? order, bool? upcoming) =>
+                int? album, int? category, int? year, string? order, bool? upcoming, int? group) =>
             {
                 if (await Disabled(resource, catalog)) return Results.NotFound();
-                return Results.Ok(await catalog.List(resource, false, q, page ?? 1, size ?? 12, featured, album, category, year, order, upcoming));
+                return Results.Ok(await catalog.List(resource, false, q, page ?? 1, size ?? 12, featured, album, category, year, order, upcoming, group));
             });
         }
         foreach (var resource in new[] { "albums", "songs" })

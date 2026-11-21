@@ -59,7 +59,7 @@ export function MediaField({title,value,bucket,kind,change,busy}:{title:string;v
   </div>;
 }
 const platforms=['Spotify','Anghami','YouTube','SoundCloud','Apple Music','Deezer','Other'];
-export function PlatformFields({value,change,social=false}:{value:Platform[];change:(v:Platform[])=>void;social?:boolean}) {
+export function PlatformFields({value,change,social=false,album=false}:{value:Platform[];change:(v:Platform[])=>void;social?:boolean;album?:boolean}) {
   const {t}=useLocale();
   function set(i:number,patch:Partial<Platform>){change(value.map((row,index)=>index===i?{...row,...patch}:row));}
   function order(rows:Platform[]){change(rows.map((x,sort)=>({...x,sort})));}
@@ -73,10 +73,9 @@ export function PlatformFields({value,change,social=false}:{value:Platform[];cha
         onChange={e=>set(i,{platformName:e.target.value==='Other'?'':e.target.value})}>
         {platforms.map(x=><option key={x} value={x}>{x==='Other'?t('Other','أخرى'):x}</option>)}</select></label>}
       {custom&&<label>{t('Platform name','اسم المنصة')}<input required value={row.platformName} onChange={e=>set(i,{platformName:e.target.value})}/></label>}
-      <label>{t('Link URL','عنوان الرابط')}<input type="url" required dir="ltr" value={row.url} onChange={e=>set(i,{url:e.target.value})}/></label>
+      <label>{album?t('Album or playlist URL','رابط الألبوم أو قائمة التشغيل'):t('Link URL','عنوان الرابط')}
+        <input type="url" required dir="ltr" value={row.url} onChange={e=>set(i,{url:e.target.value})}/></label>
       <label>{t('Display label','اسم العرض')}<input value={row.label} onChange={e=>set(i,{label:e.target.value})}/></label>
-      <label>{t('Icon','الأيقونة')}<select value={row.icon} onChange={e=>set(i,{icon:e.target.value})}>
-        <option value="">{t('External link','رابط خارجي')}</option><option value="play">{t('Play','تشغيل')}</option><option value="music">{t('Music','موسيقى')}</option></select></label>
       <div className="actions"><button type="button" className="icon-button" aria-label={t('Move link up','ارفع الرابط')} disabled={!i} onClick={()=>move(i,-1)}><ArrowUp size={16}/></button>
       <button type="button" className="icon-button" aria-label={t('Move link down','اخفض الرابط')} disabled={i===value.length-1} onClick={()=>move(i,1)}><ArrowDown size={16}/></button>
       <button type="button" className="icon-button" aria-label={t('Remove link','أزل الرابط')} onClick={()=>order(value.filter((_,idx)=>idx!==i))}><X size={16}/></button></div>

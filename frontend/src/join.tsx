@@ -3,7 +3,9 @@ import { useForm } from 'react-hook-form';
 import { Link } from 'react-router-dom';
 import { AudioLines, CheckCircle2 } from 'lucide-react';
 import { z } from 'zod';
-import { ApiError, useErrorText, useLocale, write } from './data';
+import { ApiError, useApi, useErrorText, useLocale, write, type ChoirGroup } from './data';
+import { Audition, type Take } from './audition';
+import { usePlayback } from './playback';
 import { voiceLabels, type Voice } from './recruitment';
 
 type Fields = { name: string; email: string; phone: string; voice: Voice; experience: string; consent: boolean };
@@ -11,8 +13,15 @@ type Fields = { name: string; email: string; phone: string; voice: Voice; experi
 export function JoinChoir() {
   const {t,l,profile,settings}=useLocale();
   const errorText=useErrorText();
+  const playback=usePlayback();
   const [failure,setFailure]=useState<unknown>();
   const [sent,setSent]=useState(false);
+  const [groupId,setGroupId]=useState(0);
+  const [take,setTake]=useState<Take|null>(null);
+  const [recording,setRecording]=useState(false);
+  const groups=useApi<ChoirGroup[]>('choir-groups');
+  const openGroups=groups.data?.filter(group=>group.accepting)??[];
+  const group=openGroups.find(item=>item.id===groupId);
   const confirmation=useRef<HTMLHeadingElement>(null);
   const {register,handleSubmit,formState:{errors,isSubmitting}}=useForm<Fields>({defaultValues:{voice:'unsure',consent:false}});
   const title=l('join');
@@ -51,9 +60,33 @@ export function JoinChoir() {
       setFailure(undefined);
       const result=schema.safeParse({...values,email:values.email.trim()});
       if(!result.success){setFailure(new ApiError(400,t('Review your application and try again.','راجع بيانات طلبك وحاول تاني.')));return;}
-      try { await write('join','POST',result.data);setSent(true); } catch(error) { setFailure(error); }
+      if((groups.data?.length&&!group)||recording)return;
+      if(group?.recordingRequired&&!take){
+        setFailure(new ApiError(400,t('Add a voice recording for this group.','ضيف تسجيل صوتي للفرقة دي.')));return;
+      }
+      const application={...result.data,groupId:group?.id,backingAudio:take?.backing,recordedWithBacking:!!take?.backing};
+      try {
+        if(take){
+          const data=new FormData();
+          data.append('application',JSON.stringify(application));
+          data.append('recording',take.file);
+          await write('join','POST',data);
+        } else await write('join','POST',application);
+        setSent(true);setTake(null);
+      } catch(error) {
+        if(error instanceof ApiError&&error.status===409)void groups.refetch();
+        setFailure(error);
+      }
     })}>
       <div className="field-grid">
+        {openGroups.length>0&&<label className="wide">{t('Choose a choir group','اختار فرقة الكورال')}
+          <select required value={groupId||''} disabled={recording||isSubmitting} onChange={e=>{
+            setGroupId(Number(e.target.value));setTake(null);setFailure(undefined);
+          }}>
+            <option value="">{t('Select a group','اختار الفرقة')}</option>
+            {openGroups.map(item=><option value={item.id} key={item.id}>{t(item.nameEn,item.nameAr)}</option>)}
+          </select>
+        </label>}
         <div className="wide"><label htmlFor="join-name">{t('Full name','الاسم بالكامل')}</label>
           <input id="join-name" autoComplete="name" required maxLength={120} {...accessible('name')}
             {...register('name',{validate:v=>schema.shape.name.safeParse(v).success||nameError})}/>{hint('name')}</div>
@@ -69,13 +102,22 @@ export function JoinChoir() {
           </select></div>
         <div className="wide"><label htmlFor="join-experience">{t('Singing experience (optional)','خبرتك في الغنا (اختياري)')}</label>
           <textarea id="join-experience" rows={4} maxLength={1500} dir="auto" {...register('experience')}/></div>
+        {!!groups.data&&(!groups.data.length||group)&&
+          <Audition key={String(groupId)+(group?.backingAudio??'')} backing={group?.backingAudio??''} title={group?.backingTitle??''}
+            required={!!group?.recordingRequired} value={take} change={next=>{setTake(next);setFailure(undefined);}}
+            busyChanged={setRecording} stopSitePlayback={playback.close}/>}
         <div className="wide join-consent"><label className="toggle">
           <input type="checkbox" required {...accessible('consent')} {...register('consent',{validate:v=>v||consentError})}/>
-          {t('I agree to let the choir team use these details to review my application and contact me about joining.','موافق إن فريق الكورال يستخدم البيانات دي لمراجعة طلبي والتواصل معايا بخصوص الانضمام.')}
+          {t('I agree to let the choir team review my details and any recording I submit, and contact me about joining.',
+            'موافق إن فريق الكورال يراجع بياناتي وأي تسجيل أرفعه ويتواصل معايا بخصوص الانضمام.')}
         </label>{hint('consent')}</div>
       </div>
       {failure!==undefined&&<p className="form-error" role="alert">{errorText(failure)}</p>}
-      <button className="button dark" disabled={isSubmitting}>{isSubmitting?t('Sending…','جاري إرسال الطلب…'):t('Send application','ابعت طلب الانضمام')}</button>
+      {groups.isError&&<p className="form-error" role="alert">{t('Could not load the choir groups.','فرق الكورال ما اتحمّلتش.')}
+        {' '}<button type="button" className="text-link" onClick={()=>void groups.refetch()}>{t('Try again','حاول تاني')}</button></p>}
+      {!!groups.data?.length&&!openGroups.length&&<p role="status">{t('Applications are currently closed.','التقديم مقفول حاليًا.')}</p>}
+      <button className="button dark" disabled={isSubmitting||recording||!groups.data||!!groups.data.length&&!group}>
+        {isSubmitting?t('Sending…','جاري إرسال الطلب…'):t('Send application','ابعت طلب الانضمام')}</button>
     </form>}
   </div>;
 }
