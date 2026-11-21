@@ -84,14 +84,14 @@ function Contact() {
     {t(profile.addressEn,profile.addressAr)&&<span>{t(profile.addressEn,profile.addressAr)}</span>}</address>;
 }
 const platformBrands = [
-  { key:'facebook', name:'Facebook', hosts:['facebook.com','fb.com','fb.me'], file:'facebook.svg' },
-  { key:'instagram', name:'Instagram', hosts:['instagram.com'], file:'instagram.svg' },
-  { key:'youtube', name:'YouTube', hosts:['youtube.com','youtu.be'], file:'youtube.svg' },
-  { key:'anghami', name:'Anghami', hosts:['anghami.com'], file:'anghami-lockup.png' },
-  { key:'soundcloud', name:'SoundCloud', hosts:['soundcloud.com','snd.sc'], file:'soundcloud.svg' },
-  { key:'spotify', name:'Spotify', hosts:['spotify.com','spotify.link','spoti.fi'], file:'spotify.svg' },
-  { key:'applemusic', name:'Apple Music', hosts:['music.apple.com'], file:'applemusic.svg' },
-  { key:'deezer', name:'Deezer', hosts:['deezer.com','deezer.page.link'], file:'deezer.svg' },
+  { key:'facebook', name:'Facebook', nameAr:'فيسبوك', hosts:['facebook.com','fb.com','fb.me'], file:'facebook.svg' },
+  { key:'instagram', name:'Instagram', nameAr:'إنستجرام', hosts:['instagram.com'], file:'instagram.svg' },
+  { key:'youtube', name:'YouTube', nameAr:'يوتيوب', hosts:['youtube.com','youtu.be'], file:'youtube.svg' },
+  { key:'anghami', name:'Anghami', nameAr:'أنغامي', hosts:['anghami.com'], file:'anghami-lockup.png' },
+  { key:'soundcloud', name:'SoundCloud', nameAr:'ساوند كلاود', hosts:['soundcloud.com','snd.sc'], file:'soundcloud.svg' },
+  { key:'spotify', name:'Spotify', nameAr:'سبوتيفاي', hosts:['spotify.com','spotify.link','spoti.fi'], file:'spotify.svg' },
+  { key:'applemusic', name:'Apple Music', nameAr:'آبل ميوزك', hosts:['music.apple.com'], file:'applemusic.svg' },
+  { key:'deezer', name:'Deezer', nameAr:'ديزر', hosts:['deezer.com','deezer.page.link'], file:'deezer.svg' },
 ];
 function identifyPlatform(item:Platform) {
   let host='';
@@ -100,16 +100,17 @@ function identifyPlatform(item:Platform) {
   return platformBrands.find(brand=>brand.hosts.some(domain=>host===domain||host.endsWith('.'+domain)))
     ?? platformBrands.find(brand=>brand.key===key);
 }
-export function Platforms({links,layout='default'}:{links:Platform[]|null;layout?:'default'|'compact'|'footer'}) {
+export function Platforms({links,layout='default'}:{links:Platform[]|null;layout?:'default'|'compact'|'footer'|'detail'}) {
   const {t}=useLocale();
   if (!links?.length) return null;
   return <div className={'platforms platforms-'+layout} role="group"
     aria-label={layout==='footer'?t('Choir social links','حسابات الكورال'):t('Available platforms','المنصات المتاحة')}>
     {[...links].sort((a,b)=>a.sort-b.sort).map((item,i)=>{
     const brand=identifyPlatform(item);
-    const label=item.label||brand?.name||item.platformName;
+    const label=layout==='detail'&&brand?t(brand.name,brand.nameAr):item.label||brand?.name||item.platformName;
     return <a className="platform" key={item.url+i} href={item.url} target="_blank" rel="noopener noreferrer" aria-label={label} title={label}>
-      {brand?<img className={brand.key==='anghami'?'anghami-mark':undefined} src={'/media/social/'+brand.file} width={32} height={32} alt=""/>:label}</a>;
+      {brand&&<img className={brand.key==='anghami'?'anghami-mark':undefined} src={'/media/social/'+brand.file} width={32} height={32} alt=""/>}
+      {(!brand||layout==='detail')&&label}</a>;
   })}</div>;
 }
 function Cover({url,kind,className=''}:{url:string;kind?:Resource;className?:string}) {
@@ -339,7 +340,11 @@ function Detail({resource}:{resource:'albums'|'songs'}) {
       {resource==='albums'?<AlbumPlay album={item}/>:!!sourcesFor(item).length&&
         <button type="button" className="button dark" onClick={()=>playback.start([item])}>
           <Play size={17}/>{t('Play hymn','شغّل الترنيمة')}</button>}
-      <Platforms links={item.links}/>
+      {!!item.links?.length&&<section className="detail-listening">
+        <p>{resource==='albums'?t('Listen to the full album on','يمكنكم الاستماع إلى الألبوم كاملًا عبر'):
+          t('Listen to this hymn on','يمكنكم الاستماع إلى الترنيمة عبر')}</p>
+        <Platforms links={item.links} layout="detail"/>
+      </section>}
     </div></div>
     {resource==='albums'?<section className="detail-section"><h2>{t('Tracklist','قائمة المقاطع')}</h2>
       {tracks.data?.items.length?<><Tracklist entries={tracks.data.items}/><Pager page={page} total={tracks.data.total} size={24} change={setPage}/></>:

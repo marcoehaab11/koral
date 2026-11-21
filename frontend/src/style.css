@@ -123,6 +123,11 @@ textarea{resize:vertical}
 .platforms-compact .platform{min-inline-size:34px;min-block-size:34px}
 .platforms-compact .platform img{inline-size:23px;block-size:23px}
 .platforms-footer .platform img{inline-size:28px;block-size:28px}
+.detail-listening{margin-block-start:20px;padding-block-start:12px;border-block-start:1px solid var(--line)}
+.detail-listening p{margin:0;font-weight:600}
+.platforms-detail{gap:4px 20px;margin:0}
+.platforms-detail .platform{gap:8px;font-size:.95rem}
+.platforms-detail .platform img{inline-size:24px;block-size:24px}
 .album-platforms{min-block-size:34px;margin-block-start:8px}
 .albums .album-platforms+.card-copy{margin-block-start:4px}
 .join-audition{min-inline-size:0;display:grid;gap:12px;border:1px solid var(--line);padding:16px}
