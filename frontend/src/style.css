@@ -121,6 +121,7 @@ textarea{resize:vertical}
 .platforms-stacked{flex-direction:column;align-items:flex-start;gap:4px}
 .platform{display:inline-flex;align-items:center;justify-content:center;min-inline-size:44px;min-block-size:44px;font-weight:600;font-size:.88rem;overflow-wrap:anywhere}
 .platform img{flex:none;object-fit:contain}
+.platform .anghami-mark{object-fit:cover;object-position:left center}
 .join-audition{min-inline-size:0;display:grid;gap:12px;border:1px solid var(--line);padding:16px}
 .join-audition audio[controls],.audition-player audio[controls]{display:block;inline-size:100%;max-inline-size:380px}
 .audition-player{display:grid;gap:8px}

@@ -84,7 +84,7 @@ const socialLogos = new Map([
   ['facebook', '/media/social/facebook.svg'],
   ['instagram', '/media/social/instagram.svg'],
   ['youtube', '/media/social/youtube.svg'],
-  ['anghami', '/media/social/anghami.png'],
+  ['anghami', '/media/social/anghami-lockup.png'],
   ['soundcloud', '/media/social/soundcloud.svg'],
     ['spotify', '/media/social/spotify.svg'],
     ['applemusic', '/media/social/applemusic.svg'],
@@ -93,10 +93,11 @@ const socialLogos = new Map([
 export function Platforms({links,social=false}:{links:Platform[]|null;social?:boolean}) {
   if (!links?.length) return null;
   return <div className={social?'platforms platforms-stacked':'platforms'}>{[...links].sort((a,b)=>a.sort-b.sort).map((item,i)=>{
-    const logo=socialLogos.get(item.platformName.toLowerCase().replace(/\s+/g,''));
+    const platform=item.platformName.toLowerCase().replace(/\s+/g,'');
+    const logo=socialLogos.get(platform);
     const label=item.label||item.platformName;
     return <a className="platform" key={item.url+i} href={item.url} target="_blank" rel="noopener noreferrer" aria-label={label} title={label}>
-      {logo?<img src={logo} width={32} height={32} alt=""/>:label}</a>;
+      {logo?<img className={platform==='anghami'?'anghami-mark':undefined} src={logo} width={32} height={32} alt=""/>:label}</a>;
   })}</div>;
 }
 function Cover({url,kind,className=''}:{url:string;kind?:Resource;className?:string}) {
