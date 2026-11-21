@@ -20,8 +20,11 @@ export function JoinChoir() {
   const [take,setTake]=useState<Take|null>(null);
   const [recording,setRecording]=useState(false);
   const groups=useApi<ChoirGroup[]>('choir-groups');
+  const defaultBacking=useApi<{url:string;title:string}>('join/backing');
   const openGroups=groups.data?.filter(group=>group.accepting)??[];
   const group=openGroups.find(item=>item.id===groupId);
+  const backing=group?.backingAudio||defaultBacking.data?.url||'';
+  const backingTitle=group?.backingAudio?group.backingTitle:t(defaultBacking.data?.title??'Audition backing track','تراك اختبار الصوت');
   const confirmation=useRef<HTMLHeadingElement>(null);
   const {register,handleSubmit,formState:{errors,isSubmitting}}=useForm<Fields>({defaultValues:{voice:'unsure',consent:false}});
   const title=l('join');
@@ -74,7 +77,7 @@ export function JoinChoir() {
         } else await write('join','POST',application);
         setSent(true);setTake(null);
       } catch(error) {
-        if(error instanceof ApiError&&error.status===409)void groups.refetch();
+        if(error instanceof ApiError&&error.status===409){void groups.refetch();void defaultBacking.refetch();}
         setFailure(error);
       }
     })}>
@@ -102,10 +105,16 @@ export function JoinChoir() {
           </select></div>
         <div className="wide"><label htmlFor="join-experience">{t('Singing experience (optional)','خبرتك في الغنا (اختياري)')}</label>
           <textarea id="join-experience" rows={4} maxLength={1500} dir="auto" {...register('experience')}/></div>
-        {!!groups.data&&(!groups.data.length||group)&&
-          <Audition key={String(groupId)+(group?.backingAudio??'')} backing={group?.backingAudio??''} title={group?.backingTitle??''}
+        {!!groups.data&&(!groups.data.length||group)&&!!backing&&
+          <Audition key={String(groupId)+backing} backing={backing} title={backingTitle}
             required={!!group?.recordingRequired} value={take} change={next=>{setTake(next);setFailure(undefined);}}
             busyChanged={setRecording} stopSitePlayback={playback.close}/>}
+        {!!groups.data&&(!groups.data.length||group)&&!backing&&<p className="wide metadata" role="status">
+          {defaultBacking.isError?t('The backing track could not be loaded.','تعذّر تحميل التراك المصاحب.'):
+            t('Loading the backing track…','جارٍ تحميل التراك المصاحب…')}
+          {defaultBacking.isError&&<> <button type="button" className="text-link" onClick={()=>void defaultBacking.refetch()}>
+            {t('Retry','حاول تاني')}</button></>}
+        </p>}
         <div className="wide join-consent"><label className="toggle">
           <input type="checkbox" required {...accessible('consent')} {...register('consent',{validate:v=>v||consentError})}/>
           {t('I agree to let the choir team review my details and any recording I submit, and contact me about joining.',

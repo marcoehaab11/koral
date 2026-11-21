@@ -70,13 +70,13 @@ html[lang=ar] .hero h1{font-size:clamp(2.1rem,3.8vw,4rem);letter-spacing:0;line-
 .about-preview .photo{inline-size:100%;aspect-ratio:1.5;object-fit:cover}
 .about-preview p{margin-block:15px 22px;max-inline-size:50ch}
 .site-footer{background:#192420;color:#f4eddd;padding-block:clamp(32px,5vw,64px) 22px}
-.footer-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(280px,.8fr);gap:clamp(28px,8vw,120px);align-items:start}
+.footer-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(340px,1.15fr);gap:clamp(28px,7vw,100px);align-items:start}
 .footer-identity .brand{font-size:clamp(1.12rem,2vw,1.4rem);white-space:normal;line-height:1.35}
 .footer-identity .brand img,.footer-identity .brand-mark{inline-size:50px;block-size:50px}
 .footer-identity p,.footer-identity address{color:#e4d8c3;max-inline-size:38ch;margin-block-start:14px;overflow-wrap:anywhere}
 .footer-identity address{font-size:.92rem}
 .footer-links{display:grid;align-items:start}
-.footer-links.has-social{grid-template-columns:minmax(0,1fr) minmax(108px,.72fr);gap:clamp(16px,4vw,56px)}
+.footer-links.has-social{grid-template-columns:minmax(108px,.75fr) minmax(0,1.6fr);gap:clamp(16px,3vw,44px)}
 .footer-social{border-inline-start:1px solid #47584e;padding-inline-start:clamp(16px,3vw,42px)}
 .footer-section h2{font-family:inherit;font-size:1.02rem;font-weight:700;line-height:1.4;margin-block:0 8px;color:var(--gold)}
 .footer-navigation{display:grid;justify-items:start}
@@ -129,8 +129,11 @@ textarea{resize:vertical}
 .platform .anghami-mark{object-fit:cover;object-position:left center}
 .platforms-compact .platform{min-inline-size:34px;min-block-size:34px}
 .platforms-compact .platform img{inline-size:23px;block-size:23px}
-.platforms-footer .platform{min-block-size:40px}
-.platforms-footer .platform img{inline-size:24px;block-size:24px}
+.platforms-footer .platform{display:grid;grid-template-columns:31px minmax(0,1fr);justify-items:start;min-block-size:40px;
+  inline-size:100%;gap:10px;padding-inline-start:7px;font-size:.85rem;font-weight:500}
+.platforms-footer .platform:not([data-brand]){grid-template-columns:minmax(0,1fr)}
+.platforms-footer .platform img{inline-size:24px;block-size:24px;justify-self:center}
+.platforms-footer .platform span{max-inline-size:100%;overflow-wrap:anywhere;text-align:start}
 .platforms-footer [data-brand="youtube"] img{inline-size:29px;block-size:29px}
 .platforms-footer [data-brand="soundcloud"] img{inline-size:31px;block-size:31px}
 .detail-listening{margin-block-start:20px;padding-block-start:12px;border-block-start:1px solid var(--line)}
@@ -320,6 +323,9 @@ dialog::backdrop{background:#16221cc9}
   .cards{grid-template-columns:repeat(2,minmax(0,1fr))}
   .about-preview,.prose-grid,.detail-grid,.footer-grid,.dashboard-grid,.login,.field-grid{grid-template-columns:minmax(0,1fr)}
   .footer-grid{gap:22px}
+  .footer-links.has-social{grid-template-columns:minmax(0,1fr);gap:16px}
+  .footer-navigation{grid-template-columns:repeat(2,minmax(0,1fr));column-gap:16px}
+  .footer-social{border-inline-start:0;border-block-start:1px solid #47584e;padding:16px 0 0}
   .footer-identity{padding-block-end:20px;border-block-end:1px solid #47584e}
   .footer-identity .brand img,.footer-identity .brand-mark{inline-size:42px;block-size:42px}
   .track{grid-template-columns:42px minmax(0,1fr) 96px 36px;column-gap:8px}

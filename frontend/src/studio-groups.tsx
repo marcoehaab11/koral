@@ -55,6 +55,8 @@ function GroupForm({group,onSaved}:{group:ChoirGroup;onSaved:(row:ChoirGroup)=>v
       <Toggle title={t('Require a voice recording','التسجيل الصوتي مطلوب')} checked={data.recordingRequired} change={v=>set('recordingRequired',v)}/>
     </Fieldset>
     <Fieldset title={t('Audition backing track','موسيقى اختبار الصوت')}>
+      {!data.backingAudio&&<p className="wide metadata">{t('This group uses the site’s default track until you upload one.',
+        'الفرقة هتستخدم التراك الافتراضي للموقع لحد ما ترفع تراك خاص بيها.')}</p>}
       <MediaField title={t('Backing track (MP3)','التراك المصاحب (MP3)')} bucket="audio" kind="audio" value={data.backingAudio}
         change={v=>set('backingAudio',v)} busy={delta=>setUploads(n=>n+delta)}/>
       {data.backingAudio&&<label>{t('Backing track title','اسم التراك المصاحب')}

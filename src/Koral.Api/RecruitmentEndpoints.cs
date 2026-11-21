@@ -12,9 +12,12 @@ public static class RecruitmentEndpoints
 {
     private const int MaxRecordingBytes = 8 * 1024 * 1024;
     private const string Recordings = "auditions";
+    private static readonly BackingTrack DefaultBacking = new("/media/audition-backing-v1.mp3", "Audition backing track");
+    private sealed record BackingTrack(string Url, string Title);
 
     public static void MapRecruitment(this WebApplication app)
     {
+        app.MapGet("/api/join/backing", () => DefaultBacking);
         app.MapGroup("/api/join").WithCsrf(false).MapPost("/", Submit).RequireRateLimiting("recruitment")
             .WithMetadata(new RequestSizeLimitAttribute(MaxRecordingBytes + 32_768));
 
@@ -67,16 +70,21 @@ public static class RecruitmentEndpoints
             return Results.ValidationProblem(new Dictionary<string, string[]> { ["groupId"] = ["Choose a choir group that is open for applications."] });
         if (file is null && group?.RecordingRequired == true)
             return Results.ValidationProblem(new Dictionary<string, string[]> { ["recording"] = ["Add a voice recording for this group."] });
-        if (input.RecordedWithBacking && (file is null || group?.BackingAudio is not { Length: > 0 } || input.BackingAudio != group.BackingAudio))
+        var backing = group?.BackingAudio is { Length: > 0 } custom
+            ? new BackingTrack(custom, group.BackingTitle) : DefaultBacking;
+        if (input.RecordedWithBacking && (file is null || input.BackingAudio != backing.Url))
             return Results.Problem("The backing track has changed. Refresh and record again.", statusCode: 409);
+        var backingUrl = input.RecordedWithBacking ? backing.Url : group?.BackingAudio ?? "";
+        var backingTitle = input.RecordedWithBacking ? backing.Title : group?.BackingTitle ?? "";
 
         var now = DateTimeOffset.UtcNow;
         var row = new ChoirApplication
         {
             Name = input.Name, Email = input.Email, NormalizedEmail = input.Email.ToUpperInvariant(),
             Phone = input.Phone, Voice = input.Voice, Experience = input.Experience,
-            GroupId = group?.Id, BackingAudio = file is null ? "" : group?.BackingAudio ?? "",
-            BackingTitle = file is null ? "" : group?.BackingTitle ?? "", RecordedWithBacking = input.RecordedWithBacking,
+            GroupId = group?.Id, BackingAudio = file is null ? "" : backingUrl,
+            BackingTitle = file is null ? "" : backingTitle,
+            RecordedWithBacking = input.RecordedWithBacking,
             Revision = Guid.NewGuid(), CreatedAt = now, UpdatedAt = now
         };
         if (file is not null)

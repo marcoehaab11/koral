@@ -116,18 +116,29 @@ function identifyPlatform(item:Platform) {
   return platformBrands.find(brand=>brand.hosts.some(domain=>host===domain||host.endsWith('.'+domain)))
     ?? platformBrands.find(brand=>brand.key===key);
 }
+function socialAccountName(item:Platform,platform:string|undefined,fallback:string) {
+  try {
+    const segment=decodeURIComponent(new URL(item.url).pathname.split('/')[1]??'');
+    if(platform==='youtube'&&segment.startsWith('@'))return segment;
+    if((platform==='facebook'||platform==='instagram'||platform==='soundcloud')&&segment!=='profile.php'&&/^[\w.-]+$/.test(segment))
+      return '@'+segment;
+  } catch { /* Fall back to the saved account name. */ }
+  return item.label||((platform==='youtube'||platform==='anghami')?fallback:item.platformName);
+}
 export function Platforms({links,layout='default'}:{links:Platform[]|null;layout?:'default'|'compact'|'footer'|'detail'}) {
-  const {t}=useLocale();
+  const {t,profile}=useLocale();
   if (!links?.length) return null;
   return <div className={'platforms platforms-'+layout} role="group"
     aria-label={layout==='footer'?t('Choir social links','حسابات الكورال'):t('Available platforms','المنصات المتاحة')}>
     {[...links].sort((a,b)=>a.sort-b.sort).map((item,i)=>{
     const brand=identifyPlatform(item);
-    const label=layout==='detail'&&brand?t(brand.name,brand.nameAr):item.label||brand?.name||item.platformName;
-    return <a className="platform" key={item.url+i} href={item.url} target="_blank" rel="noopener noreferrer" aria-label={label} title={label}
+    const label=layout==='footer'?socialAccountName(item,brand?.key,t(profile.nameEn,profile.nameAr)):
+      layout==='detail'&&brand?t(brand.name,brand.nameAr):item.label||brand?.name||item.platformName;
+    const accessibleName=layout==='footer'&&brand?t(brand.name,brand.nameAr)+' · '+label:label;
+    return <a className="platform" key={item.url+i} href={item.url} target="_blank" rel="noopener noreferrer" aria-label={accessibleName} title={accessibleName}
       data-brand={brand?.key}>
       {brand&&<img className={brand.key==='anghami'?'anghami-mark':undefined} src={'/media/social/'+brand.file} width={32} height={32} alt=""/>}
-      {(!brand||layout==='detail')&&label}</a>;
+      {(!brand||layout==='detail'||layout==='footer')&&<span dir="auto">{label}</span>}</a>;
   })}</div>;
 }
 function Cover({url,kind,className=''}:{url:string;kind?:Resource;className?:string}) {

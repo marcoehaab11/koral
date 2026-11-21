@@ -3,7 +3,8 @@ import { fileURLToPath } from 'node:url';
 
 test.use({launchOptions:{args:['--use-fake-device-for-media-stream','--use-fake-ui-for-media-stream']}});
 
-test('bilingual application reaches the private CRM and remains editable after reload', async ({page,request}) => {
+test('bilingual application with default backing reaches the CRM and remains editable', async ({page,request,context}) => {
+  await context.grantPermissions(['microphone']);
   expect((await request.get('/api/admin/applications')).status()).toBe(401);
   expect((await request.post('/api/join',{data:{name:'Salma Example'}})).status()).toBe(400);
   expect((await request.get('/api/join')).ok()).toBe(false);
@@ -26,6 +27,11 @@ test('bilingual application reaches the private CRM and remains editable after r
   await page.getByRole('combobox').selectOption('alto');
   await page.getByLabel('خبرتك في الغنا (اختياري)',{exact:true}).fill('خبرة في غناء الكورال');
   await page.getByRole('checkbox').check();
+  await page.getByRole('button',{name:'ابدأ التسجيل'}).click();
+  const backing=page.locator('audio[aria-label="اسمع التراك المصاحب"]');
+  await expect.poll(()=>backing.evaluate((audio:HTMLAudioElement)=>!audio.paused&&audio.currentTime>.15)).toBe(true);
+  await page.getByRole('button',{name:'وقّف التسجيل'}).click();
+  await expect(page.getByRole('button',{name:'اسمع الصوت مع الموسيقى'})).toBeVisible();
   await page.getByRole('button',{name:'ابعت طلب الانضمام'}).click();
   await expect(page.getByRole('heading',{name:'طلبك وصل'})).toBeFocused();
 
@@ -52,6 +58,8 @@ test('bilingual application reaches the private CRM and remains editable after r
   await expect(page.getByText('خبرة في غناء الكورال')).toBeVisible();
   const detailPath='/api/admin/applications/'+page.url().split('/').at(-1);
   const original=(await (await page.request.get(detailPath)).json());
+  expect(original.recordedWithBacking).toBe(true);
+  expect(original.backingAudio).toBe((await (await request.get('/api/join/backing')).json()).url);
   await page.getByRole('combobox',{name:'Application status'}).selectOption('audition');
   await page.getByLabel('Internal notes').fill('Schedule a voice check.');
   await page.getByRole('button',{name:'Save application'}).click();

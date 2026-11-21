@@ -94,6 +94,7 @@ export function Audition({backing,title,required,value,change,busyChanged,stopSi
     stopSitePlayback();
     setError('');setElapsed(0);setState('starting');busyChanged(true);
     let valid=true;
+    let startingMusic=false;
     try {
       const mic=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true}});
       if(!mounted.current){mic.getTracks().forEach(track=>track.stop());return;}
@@ -121,7 +122,11 @@ export function Audition({backing,title,required,value,change,busyChanged,stopSi
       };
       const music=audio.current;
       if(music){music.pause();music.currentTime=0;}
-      if(backing&&music)await music.play();
+      if(backing&&music){
+        startingMusic=true;
+        await music.play();
+        startingMusic=false;
+      }
       if(!mounted.current)return;
       recording.start();
       change(null);setState('recording');
@@ -131,13 +136,16 @@ export function Audition({backing,title,required,value,change,busyChanged,stopSi
         setElapsed(Math.min(recordingSeconds,seconds));
         if(seconds>=recordingSeconds)stop();
       },250);
-    } catch {
+    } catch (failure) {
       valid=false;
       if(recorder.current?.state==='recording')recorder.current.stop();
       stopMedia();
       if(mounted.current){
-        setError(t('Could not start recording. Allow microphone access and try again, or upload a file.',
-          'ما قدرناش نبدأ التسجيل. اسمح بالميكروفون وحاول تاني، أو ارفع ملف.'));
+        const blocked=failure instanceof DOMException&&failure.name==='NotAllowedError';
+        setError(startingMusic?(blocked?t('Tap Start recording again to play the music.','دوس ابدأ التسجيل تاني لتشغيل الموسيقى.'):
+          t('The backing music could not play. Try again or upload a file.','الموسيقى المصاحبة ما اشتغلتش. حاول تاني أو ارفع ملف.')):
+          t('Could not start recording. Allow microphone access and try again, or upload a file.',
+            'ما قدرناش نبدأ التسجيل. اسمح بالميكروفون وحاول تاني، أو ارفع ملف.'));
         setState('ready');busyChanged(false);
       }
     }
