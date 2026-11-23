@@ -30,6 +30,7 @@ public sealed class AlbumPlatformLink
     public string Url { get; set; } = "";
     public string Label { get; set; } = "";
     public int Sort { get; set; }
+    public bool Enabled { get; set; } = true;
 }
 public sealed class Song : Entry
 {

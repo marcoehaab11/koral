@@ -102,6 +102,16 @@ textarea{resize:vertical}
 .spinner{inline-size:17px;block-size:17px;border:2px solid #839480;border-block-start-color:#2c4835;border-radius:50%;animation:spin .8s linear infinite}
 @keyframes spin{to{rotate:360deg}}
 .cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:clamp(17px,3vw,32px)}
+.album-choirs-title{font-family:inherit;font-size:1.25rem;font-weight:700;margin-block-end:18px}
+.album-choirs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:clamp(14px,3vw,28px);max-inline-size:680px}
+.choir-folder{display:grid;align-content:space-between;gap:18px;min-block-size:126px;padding:clamp(16px,3vw,26px);
+  border:1px solid var(--line);border-radius:4px;background:var(--white);font-size:clamp(1rem,2.4vw,1.35rem);font-weight:700;overflow-wrap:anywhere}
+.choir-folder svg{color:#47634d}
+.choir-folder:hover{border-color:#81917f;background:#edf1e8}
+.choir-back{display:inline-block;margin-block-end:14px}
+.choir-album-list .media-card.albums{position:relative;padding:18px 10px 14px;background:#eceee1;border:1px solid #d5dacb;border-radius:0 4px 4px 4px;margin-block-start:9px}
+.choir-album-list .media-card.albums::before{content:"";position:absolute;inset-block-start:-9px;inset-inline-start:-1px;
+  inline-size:40%;block-size:9px;border:1px solid #d5dacb;border-block-end:0;border-radius:4px 4px 0 0;background:#eceee1}
 .media-card{border-block-end:1px solid var(--line);padding-block-end:18px;overflow-wrap:anywhere}
 .cover{background:#dce2d1;aspect-ratio:1;overflow:hidden}
 .cover img{inline-size:100%;block-size:100%;object-fit:cover;transition:transform .25s}

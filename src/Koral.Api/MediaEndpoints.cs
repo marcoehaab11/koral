@@ -79,7 +79,7 @@ public static class MediaEndpoints
         }
         if (await db.Albums.AnyAsync(x => x.Published && x.Image == path)) return true;
         if (await db.Songs.AnyAsync(x => x.Published && (x.Image == path || x.Audio == path))) return true;
-        if (bucket == "audio" && await db.ChoirGroups.AnyAsync(x => x.Accepting && x.BackingAudio == path)) return true;
+        if (bucket == "audio" && await db.ChoirGroups.AnyAsync(x => x.RecruitmentEnabled && x.Accepting && x.BackingAudio == path)) return true;
         if (await db.Gallery.AnyAsync(x => x.Published && (x.Image == path || x.Video == path))) return true;
         var visibility = await new Catalog(db).Settings();
         return (visibility.Members && await db.Members.AnyAsync(x => x.Published && x.Image == path)) ||

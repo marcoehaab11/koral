@@ -15,6 +15,85 @@ async function upload(api:APIRequestContext,bucket:string,name:string,mimeType:s
 }
 const base={titleEn:'Night rehearsal',titleAr:'بروفة ليلية',descriptionEn:'Workflow test',descriptionAr:'اختبار النشر'};
 
+test('choir folders show assigned albums and only enabled sources',async({page})=>{
+  const api=page.request;
+  await expect(await mutate(api,'auth/login','POST',{email:'admin@admin.com',password:'Admin@123456'})).toBeOK();
+  const groups=await (await api.get('/api/choir-groups')).json();
+  const [senior,junior]=groups.filter((group:{catalogSlot?:number})=>group.catalogSlot);
+  expect([senior.catalogSlot,junior.catalogSlot]).toEqual([1,2]);
+  expect(senior.recruitmentEnabled).toBe(false);
+
+  await page.goto('/ADMIN/choir-groups');
+  await page.getByRole('combobox',{name:'Select a choir group'}).selectOption(String(senior.id));
+  await page.getByLabel('Name in English').fill('Main Choir');
+  await page.getByRole('button',{name:'Save choir group'}).click();
+  await expect(page.getByText('Group saved.')).toBeVisible();
+
+  const urls={
+    spotify:'https://open.spotify.com/playlist/37i9dQZF1DX4Wsb4d7NKfP',
+    soundcloud:'https://soundcloud.com/example/sets/example-album',
+  };
+  const cover=await upload(api,'albums','catalogue-cover.webp','image/webp',artwork);
+  await expect(cover).toBeOK();
+  const {url:image}=await cover.json();
+  const collection={
+    titleEn:'Main Album',titleAr:'الألبوم الكبير',published:true,groupIds:[senior.id],image,links:[
+      {platformName:'Spotify',url:urls.spotify,enabled:true},
+      {platformName:'SoundCloud',url:urls.soundcloud,enabled:false},
+      {platformName:'YouTube',url:'',enabled:false},
+    ],
+  };
+  const mainResponse=await mutate(api,'admin/albums','POST',collection);
+  expect(mainResponse.status()).toBe(201);
+  const album=await mainResponse.json();
+  const juniorResponse=await mutate(api,'admin/albums','POST',{titleEn:'Junior Album',titleAr:'الألبوم الصغير',published:true,groupIds:[junior.id]});
+  expect(juniorResponse.status()).toBe(201);
+  const juniorAlbum=await juniorResponse.json();
+  const unassignedResponse=await mutate(api,'admin/albums','POST',{titleEn:'Unassigned Album',titleAr:'ألبوم غير مصنف',published:true});
+  expect(unassignedResponse.status()).toBe(201);
+  const unassigned=await unassignedResponse.json();
+
+  await page.setViewportSize({width:390,height:850});
+  await page.goto('/albums');
+  const chooser=page.getByRole('region',{name:'Choose a choir'});
+  await expect(chooser.getByRole('link')).toHaveCount(2);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBe(390);
+  await chooser.getByRole('link',{name:'Main Choir'}).click();
+  await expect(page.getByRole('heading',{name:'Main Choir',exact:true})).toBeVisible();
+  await expect(page.locator('.choir-album-list article')).toHaveCount(1);
+  await expect(page.locator('.choir-album-list img')).toHaveAttribute('src',image);
+  await page.locator('.choir-album-list img').evaluate(img=>(img as HTMLImageElement).decode());
+  await page.screenshot({path:fileURLToPath(new URL('../../artifacts/visual/choir-album-folder-mobile.png',import.meta.url))});
+  await page.getByRole('heading',{name:'Main Album',exact:true}).getByRole('link').click();
+  const sources=page.locator('.detail-listening');
+  await expect(sources.getByRole('link',{name:'Spotify'})).toHaveAttribute('href',urls.spotify);
+  await expect(sources.getByRole('link')).toHaveCount(1);
+  await page.getByRole('link',{name:'Back to choir albums'}).click();
+  await expect(page.getByRole('heading',{name:'Main Choir',exact:true})).toBeVisible();
+  await page.getByRole('link',{name:'Choose another choir'}).click();
+  await chooser.getByRole('link',{name:'Junior Choir'}).click();
+  await expect(page.locator('.choir-album-list article')).toHaveCount(1);
+  await expect(page.getByRole('heading',{name:'Junior Album',exact:true})).toBeVisible();
+
+  await page.setViewportSize({width:1440,height:900});
+  await page.goto('/ADMIN/albums/'+album.id);
+  const visibility=page.getByRole('checkbox',{name:'Show this source'});
+  await expect(visibility).toHaveCount(3);
+  await visibility.nth(0).uncheck();
+  await visibility.nth(1).check();
+  await page.getByRole('button',{name:'Save published entry'}).click();
+  await expect(page.getByText('Changes saved.')).toBeVisible();
+  await page.goto('/albums/'+album.slug);
+  await expect(sources.getByRole('link',{name:'SoundCloud'})).toHaveAttribute('href',urls.soundcloud);
+  await expect(sources.getByRole('link')).toHaveCount(1);
+  const publicAlbum=await (await api.get('/api/albums/'+album.slug)).json();
+  expect(publicAlbum.links.map((link:{url:string})=>link.url)).toEqual([urls.soundcloud]);
+
+  for(const row of [album,juniorAlbum,unassigned])
+    expect((await mutate(api,'admin/albums/'+row.id,'DELETE')).status()).toBe(204);
+  await expect(await mutate(api,'admin/choir-groups/'+senior.id,'PUT',senior)).toBeOK();
+});
+
 test('studio publishes an album and recording, protecting drafts and streaming byte ranges',async({page,baseURL})=>{
   const anonymous=await createRequest.newContext({baseURL});
   await expect(await anonymous.get('/api/admin/dashboard')).not.toBeOK();

@@ -21,7 +21,8 @@ export function JoinChoir() {
   const [recording,setRecording]=useState(false);
   const groups=useApi<ChoirGroup[]>('choir-groups');
   const defaultBacking=useApi<{url:string;title:string}>('join/backing');
-  const openGroups=groups.data?.filter(group=>group.accepting)??[];
+  const recruitmentGroups=groups.data?.filter(group=>group.recruitmentEnabled!==false)??[];
+  const openGroups=recruitmentGroups.filter(group=>group.accepting);
   const group=openGroups.find(item=>item.id===groupId);
   const backing=group?.backingAudio||defaultBacking.data?.url||'';
   const backingTitle=group?.backingAudio?group.backingTitle:t(defaultBacking.data?.title??'Audition backing track','تراك اختبار الصوت');
@@ -63,7 +64,7 @@ export function JoinChoir() {
       setFailure(undefined);
       const result=schema.safeParse({...values,email:values.email.trim()});
       if(!result.success){setFailure(new ApiError(400,t('Review your application and try again.','راجع بيانات طلبك وحاول تاني.')));return;}
-      if((groups.data?.length&&!group)||recording)return;
+      if((recruitmentGroups.length&&!group)||recording)return;
       if(group?.recordingRequired&&!take){
         setFailure(new ApiError(400,t('Add a voice recording for this group.','ضيف تسجيل صوتي للفرقة دي.')));return;
       }
@@ -105,11 +106,11 @@ export function JoinChoir() {
           </select></div>
         <div className="wide"><label htmlFor="join-experience">{t('Singing experience (optional)','خبرتك في الغنا (اختياري)')}</label>
           <textarea id="join-experience" rows={4} maxLength={1500} dir="auto" {...register('experience')}/></div>
-        {!!groups.data&&(!groups.data.length||group)&&!!backing&&
+        {!!groups.data&&(!recruitmentGroups.length||group)&&!!backing&&
           <Audition key={String(groupId)+backing} backing={backing} title={backingTitle}
             required={!!group?.recordingRequired} value={take} change={next=>{setTake(next);setFailure(undefined);}}
             busyChanged={setRecording} stopSitePlayback={playback.close}/>}
-        {!!groups.data&&(!groups.data.length||group)&&!backing&&<p className="wide metadata" role="status">
+        {!!groups.data&&(!recruitmentGroups.length||group)&&!backing&&<p className="wide metadata" role="status">
           {defaultBacking.isError?t('The backing track could not be loaded.','تعذّر تحميل التراك المصاحب.'):
             t('Loading the backing track…','جارٍ تحميل التراك المصاحب…')}
           {defaultBacking.isError&&<> <button type="button" className="text-link" onClick={()=>void defaultBacking.refetch()}>
@@ -124,8 +125,8 @@ export function JoinChoir() {
       {failure!==undefined&&<p className="form-error" role="alert">{errorText(failure)}</p>}
       {groups.isError&&<p className="form-error" role="alert">{t('Could not load the choir groups.','فرق الكورال ما اتحمّلتش.')}
         {' '}<button type="button" className="text-link" onClick={()=>void groups.refetch()}>{t('Try again','حاول تاني')}</button></p>}
-      {!!groups.data?.length&&!openGroups.length&&<p role="status">{t('Applications are currently closed.','التقديم مقفول حاليًا.')}</p>}
-      <button className="button dark" disabled={isSubmitting||recording||!groups.data||!!groups.data.length&&!group}>
+      {!!recruitmentGroups.length&&!openGroups.length&&<p role="status">{t('Applications are currently closed.','التقديم مقفول حاليًا.')}</p>}
+      <button className="button dark" disabled={isSubmitting||recording||!groups.data||!!recruitmentGroups.length&&!group}>
         {isSubmitting?t('Sending…','جاري إرسال الطلب…'):t('Send application','ابعت طلب الانضمام')}</button>
     </form>}
   </div>;

@@ -43,7 +43,10 @@ public sealed class KoralDb(DbContextOptions<KoralDb> options) : IdentityDbConte
         application.HasIndex(x => new { x.Status, x.CreatedAt });
         b.Entity<ChoirGroup>().Property(x => x.NameEn).HasMaxLength(120);
         b.Entity<ChoirGroup>().Property(x => x.NameAr).HasMaxLength(120);
+        b.Entity<ChoirGroup>().HasIndex(x => x.CatalogSlot).IsUnique();
+        b.Entity<ChoirGroup>().Property(x => x.RecruitmentEnabled).HasDefaultValue(true);
         b.Entity<AlbumPlatformLink>().Property(x => x.Url).HasMaxLength(2048);
+        b.Entity<AlbumPlatformLink>().Property(x => x.Enabled).HasDefaultValue(true);
         b.Entity<ChoirProfile>().Property(x => x.Id).ValueGeneratedNever();
         b.Entity<SiteSetting>().Property(x => x.Id).ValueGeneratedNever();
         Configure<Album>(b);

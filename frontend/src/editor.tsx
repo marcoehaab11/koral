@@ -60,7 +60,7 @@ function Editor({resource,item}:{resource:Resource;item?:Entry}) {
     event.preventDefault();setError(undefined);setSaved(false);
     const validation=z.object({titleEn:z.string().trim().min(1).max(180),titleAr:z.string().trim().min(1).max(180)}).safeParse(data);
     if(!validation.success){setError(new ApiError(400,t('Enter both titles, up to 180 characters each.','أدخل العنوانين، بحد أقصى ١٨٠ حرفاً لكل منهما.')));return;}
-    if(links.some(x=>!z.url({protocol:/^https?$/}).safeParse(x.url).success)){
+    if(links.some(x=>!(resource==='albums'&&x.enabled===false&&!x.url.trim())&&!z.url({protocol:/^https?$/}).safeParse(x.url).success)){
       setError(new ApiError(400,t('Use HTTP or HTTPS links.','استخدم روابط HTTP أو HTTPS.')));return;
     }
     setBusy(true);

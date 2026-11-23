@@ -5,7 +5,7 @@ import { Fieldset, FormError, MediaField, Toggle } from './editor-fields';
 import { Feedback } from './public';
 
 const endpoint='admin/choir-groups';
-const empty={id:0,nameEn:'',nameAr:'',accepting:true,recordingRequired:false,backingAudio:'',backingTitle:''};
+const empty:ChoirGroup={id:0,nameEn:'',nameAr:'',accepting:true,recordingRequired:false,backingAudio:'',backingTitle:'',recruitmentEnabled:true};
 
 export function ChoirGroups() {
   const {l,t}=useLocale();
@@ -51,17 +51,21 @@ function GroupForm({group,onSaved}:{group:ChoirGroup;onSaved:(row:ChoirGroup)=>v
         <input value={data.nameEn} onChange={e=>set('nameEn',e.target.value)} required maxLength={120}/></label>
       <label>{t('Name in Arabic','الاسم بالعربي')}
         <input value={data.nameAr} onChange={e=>set('nameAr',e.target.value)} required maxLength={120}/></label>
-      <Toggle title={t('Open for applications','التقديم مفتوح')} checked={data.accepting} change={v=>set('accepting',v)}/>
-      <Toggle title={t('Require a voice recording','التسجيل الصوتي مطلوب')} checked={data.recordingRequired} change={v=>set('recordingRequired',v)}/>
+      {data.catalogSlot&&<Toggle title={t('Include this choir in recruitment','استخدم الكورال ده في التقديم')}
+        checked={data.recruitmentEnabled!==false} change={v=>set('recruitmentEnabled',v)}/>}
+      {data.recruitmentEnabled!==false&&<>
+        <Toggle title={t('Open for applications','التقديم مفتوح')} checked={data.accepting} change={v=>set('accepting',v)}/>
+        <Toggle title={t('Require a voice recording','التسجيل الصوتي مطلوب')} checked={data.recordingRequired} change={v=>set('recordingRequired',v)}/>
+      </>}
     </Fieldset>
-    <Fieldset title={t('Audition backing track','موسيقى اختبار الصوت')}>
+    {data.recruitmentEnabled!==false&&<Fieldset title={t('Audition backing track','موسيقى اختبار الصوت')}>
       {!data.backingAudio&&<p className="wide metadata">{t('This group uses the site’s default track until you upload one.',
         'الفرقة هتستخدم التراك الافتراضي للموقع لحد ما ترفع تراك خاص بيها.')}</p>}
       <MediaField title={t('Backing track (MP3)','التراك المصاحب (MP3)')} bucket="audio" kind="audio" value={data.backingAudio}
         change={v=>set('backingAudio',v)} busy={delta=>setUploads(n=>n+delta)}/>
       {data.backingAudio&&<label>{t('Backing track title','اسم التراك المصاحب')}
         <input value={data.backingTitle} onChange={e=>set('backingTitle',e.target.value)} required maxLength={180}/></label>}
-    </Fieldset>
+    </Fieldset>}
     <FormError error={error}/>
     {saved&&<p role="status" className="form-success">{t('Group saved.','اتحفظت بيانات الفرقة.')}</p>}
     <div><button className="button dark" disabled={busy||uploads>0}>{busy?t('Saving…','جاري الحفظ…'):t('Save choir group','احفظ الفرقة')}</button></div>

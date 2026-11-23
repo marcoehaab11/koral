@@ -65,8 +65,8 @@ public static class RecruitmentEndpoints
                 .ToDictionary(x => System.Text.Json.JsonNamingPolicy.CamelCase.ConvertName(x.Key), x => x.Select(e => e.ErrorMessage).ToArray()));
 
         var group = input.GroupId is int id
-            ? await db.ChoirGroups.AsNoTracking().SingleOrDefaultAsync(x => x.Id == id && x.Accepting, ct) : null;
-        if (group is null && (input.GroupId.HasValue || await db.ChoirGroups.AnyAsync(ct)))
+            ? await db.ChoirGroups.AsNoTracking().SingleOrDefaultAsync(x => x.Id == id && x.RecruitmentEnabled && x.Accepting, ct) : null;
+        if (group is null && (input.GroupId.HasValue || await db.ChoirGroups.AnyAsync(x => x.RecruitmentEnabled, ct)))
             return Results.ValidationProblem(new Dictionary<string, string[]> { ["groupId"] = ["Choose a choir group that is open for applications."] });
         if (file is null && group?.RecordingRequired == true)
             return Results.ValidationProblem(new Dictionary<string, string[]> { ["recording"] = ["Add a voice recording for this group."] });

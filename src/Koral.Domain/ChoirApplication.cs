@@ -29,6 +29,8 @@ public sealed class ChoirGroup
     public string NameEn { get; set; } = "";
     public string NameAr { get; set; } = "";
     public bool Accepting { get; set; }
+    public int? CatalogSlot { get; set; }
+    public bool RecruitmentEnabled { get; set; } = true;
     public bool RecordingRequired { get; set; }
     public string BackingAudio { get; set; } = "";
     public string BackingTitle { get; set; } = "";

@@ -18,9 +18,11 @@ public static class ChoirGroups
     }
 
     private static Task<List<GroupView>> List(KoralDb db, bool admin, CancellationToken ct) =>
-        db.ChoirGroups.AsNoTracking().OrderBy(x => x.Id).Select(x => new GroupView(x.Id, x.NameEn, x.NameAr,
-            x.Accepting, x.RecordingRequired, admin || x.Accepting ? x.BackingAudio : "",
-            admin || x.Accepting ? x.BackingTitle : "")).ToListAsync(ct);
+        db.ChoirGroups.AsNoTracking().OrderBy(x => x.CatalogSlot ?? int.MaxValue).ThenBy(x => x.Id)
+            .Select(x => new GroupView(x.Id, x.NameEn, x.NameAr, x.Accepting, x.RecordingRequired,
+                admin || (x.RecruitmentEnabled && x.Accepting) ? x.BackingAudio : "",
+                admin || (x.RecruitmentEnabled && x.Accepting) ? x.BackingTitle : "",
+                x.CatalogSlot, x.RecruitmentEnabled)).ToListAsync(ct);
 
     private static async Task<IResult> Save(int? id, GroupInput input, KoralDb db, Catalog catalog, HttpContext http, CancellationToken ct)
     {
@@ -37,6 +39,7 @@ public static class ChoirGroups
         if (group is null) return Results.NotFound();
         (group.NameEn, group.NameAr, group.Accepting, group.RecordingRequired, group.BackingAudio, group.BackingTitle) =
             (en, ar, input.Accepting, input.RecordingRequired, audio, audio == "" ? "" : title);
+        group.RecruitmentEnabled = input.RecruitmentEnabled ?? group.RecruitmentEnabled;
 
         await using var tx = await db.Database.BeginTransactionAsync(ct);
         if (id is null) db.ChoirGroups.Add(group);
@@ -44,12 +47,13 @@ public static class ChoirGroups
         catalog.Audit(Sessions.Actor(http), id is null ? "create" : "update", "choir-groups", group.Id);
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
-        return Results.Ok(new GroupView(group.Id, en, ar, group.Accepting, group.RecordingRequired, audio, group.BackingTitle));
+        return Results.Ok(new GroupView(group.Id, en, ar, group.Accepting, group.RecordingRequired, audio, group.BackingTitle,
+            group.CatalogSlot, group.RecruitmentEnabled));
     }
 
     public sealed record GroupInput(string NameEn, string NameAr, bool Accepting, bool RecordingRequired,
-        string BackingAudio, string BackingTitle);
+        string BackingAudio, string BackingTitle, bool? RecruitmentEnabled = null);
 
     public sealed record GroupView(int Id, string NameEn, string NameAr, bool Accepting, bool RecordingRequired,
-        string BackingAudio, string BackingTitle);
+        string BackingAudio, string BackingTitle, int? CatalogSlot, bool RecruitmentEnabled);
 }

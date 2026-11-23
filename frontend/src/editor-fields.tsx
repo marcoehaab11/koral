@@ -74,8 +74,9 @@ export function PlatformFields({value,change,social=false,album=false}:{value:Pl
         {platforms.map(x=><option key={x} value={x}>{x==='Other'?t('Other','أخرى'):x}</option>)}</select></label>}
       {custom&&<label>{t('Platform name','اسم المنصة')}<input required value={row.platformName} onChange={e=>set(i,{platformName:e.target.value})}/></label>}
       <label>{album?t('Album or playlist URL','رابط الألبوم أو قائمة التشغيل'):t('Link URL','عنوان الرابط')}
-        <input type="url" required dir="ltr" value={row.url} onChange={e=>set(i,{url:e.target.value})}/></label>
+        <input type="url" required={!album||row.enabled!==false} dir="ltr" value={row.url} onChange={e=>set(i,{url:e.target.value})}/></label>
       <label>{t('Display label','اسم العرض')}<input value={row.label} onChange={e=>set(i,{label:e.target.value})}/></label>
+      {album&&<Toggle title={t('Show this source','إظهار المصدر للزوار')} checked={row.enabled!==false} change={enabled=>set(i,{enabled})}/>}
       <div className="actions"><button type="button" className="icon-button" aria-label={t('Move link up','ارفع الرابط')} disabled={!i} onClick={()=>move(i,-1)}><ArrowUp size={16}/></button>
       <button type="button" className="icon-button" aria-label={t('Move link down','اخفض الرابط')} disabled={i===value.length-1} onClick={()=>move(i,1)}><ArrowDown size={16}/></button>
       <button type="button" className="icon-button" aria-label={t('Remove link','أزل الرابط')} onClick={()=>order(value.filter((_,idx)=>idx!==i))}><X size={16}/></button></div>

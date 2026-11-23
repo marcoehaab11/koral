@@ -111,6 +111,11 @@ namespace Koral.Infrastructure.Migrations
                     b.Property<int>("AlbumId")
                         .HasColumnType("int");
 
+                    b.Property<bool>("Enabled")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
                     b.Property<string>("Label")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
@@ -279,6 +284,9 @@ namespace Koral.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<int?>("CatalogSlot")
+                        .HasColumnType("int");
+
                     b.Property<string>("NameAr")
                         .IsRequired()
                         .HasMaxLength(120)
@@ -292,7 +300,16 @@ namespace Koral.Infrastructure.Migrations
                     b.Property<bool>("RecordingRequired")
                         .HasColumnType("bit");
 
+                    b.Property<bool>("RecruitmentEnabled")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
                     b.HasKey("Id");
+
+                    b.HasIndex("CatalogSlot")
+                        .IsUnique()
+                        .HasFilter("[CatalogSlot] IS NOT NULL");
 
                     b.ToTable("ChoirGroups");
                 });

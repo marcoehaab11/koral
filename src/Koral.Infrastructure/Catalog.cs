@@ -53,7 +53,9 @@ public sealed class Catalog(KoralDb db)
         return e switch
         {
             Album a => item with { Slug = a.Slug, Date = a.Date, TrackCount = a.Songs.Count(s => admin || s.Published),
-                Links = a.Links.OrderBy(l => l.Sort).ThenBy(l => l.Id).Select(l => new Platform(l.Platform, l.Url, l.Label, Sort: l.Sort)).ToList(),
+                Links = a.Links.Where(l => admin || (l.Enabled && !string.IsNullOrWhiteSpace(l.Url)))
+                    .OrderBy(l => l.Sort).ThenBy(l => l.Id)
+                    .Select(l => new Platform(l.Platform, l.Url, l.Label, Sort: l.Sort, Enabled: l.Enabled)).ToList(),
                 GroupIds = a.Groups.Select(g => g.Id).Order().ToList() },
             Song s => item with {
                 Slug = s.Slug, Date = s.Date, AlbumId = admin || s.Album?.Published == true ? s.AlbumId : null,
@@ -174,7 +176,8 @@ public sealed class Catalog(KoralDb db)
                 {
                     a.Links.Clear();
                     foreach (var link in input.Links) a.Links.Add(new AlbumPlatformLink
-                        { Platform = link.PlatformName.Trim(), Url = link.Url, Label = link.Label, Sort = link.Sort });
+                        { Platform = link.PlatformName.Trim(), Url = link.Url?.Trim() ?? "", Label = link.Label,
+                            Sort = link.Sort, Enabled = link.Enabled });
                 }
                 (a.Slug, a.Date) = (slug, input.Date);
                 break;

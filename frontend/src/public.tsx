@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link, NavLink, Route, Routes, useLocation, useParams, useSearchParams } from 'react-router-dom';
-import { AudioLines, CalendarDays, Camera, Disc3, Headphones, Menu, Music2, Play, Search, X } from 'lucide-react';
+import { AudioLines, CalendarDays, Camera, Disc3, FolderOpen, Headphones, Menu, Music2, Play, Search, X } from 'lucide-react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { ApiError, api, params, useApi, useLocale, type ChoirGroup, type Entry, type Page, type Platform, type Resource } from './data';
 
@@ -238,10 +238,12 @@ function Index({resource}:{resource:Resource}) {
   const allowed=resource==='members'?settings.members:resource==='events'?settings.events:true;
   const categories=useApi<Page<Entry>>('categories?size=100',resource==='gallery');
   const groups=useApi<ChoirGroup[]>('choir-groups',resource==='albums');
+  const selected=groups.data?.find(choir=>String(choir.id)===group);
+  const choosingChoir=resource==='albums'&&!selected;
   const query=useApi<Page<Entry>>(resource+params({q,page,size:12,featured:(resource==='albums'||resource==='songs')&&filter==='featured'?true:undefined,
-    year:resource==='albums'?year:undefined,group:resource==='albums'&&Number(group)>0?group:undefined,
+    year:resource==='albums'?year:undefined,group:resource==='albums'?selected?.id:undefined,
     category:resource==='gallery'&&Number(filter)>0?filter:undefined,
-    upcoming:resource==='events'?filter!=='past':undefined,order:resource==='events'?(filter==='past'?'latest':'date'):sorting}),allowed);
+    upcoming:resource==='events'?filter!=='past':undefined,order:resource==='events'?(filter==='past'?'latest':'date'):sorting}),allowed&&!choosingChoir);
   useTitle(l(resource));
   function update(key:string,value:string) {
     const next=new URLSearchParams(state);
@@ -250,15 +252,27 @@ function Index({resource}:{resource:Resource}) {
     setState(next,{replace:key==='q'});
   }
   if(!allowed)return <div className="shell page"><Feedback error={new ApiError(404,'')}/></div>;
-  return <div className="shell page"><Heading title={l(resource)}/><div className="filters">
+  if(choosingChoir){
+    const choices=groups.data?.filter(choir=>choir.catalogSlot!=null)??[];
+    return <div className="shell page"><Heading title={l('albums')}/>
+      {groups.isPending||groups.isError?<Feedback pending={groups.isPending} error={groups.error} onRetry={()=>groups.refetch()}/>:
+        choices.length?<section aria-labelledby="album-choirs-title">
+          <h2 className="album-choirs-title" id="album-choirs-title">{t('Choose a choir','اختار الكورال')}</h2>
+          <div className="album-choirs">{choices.map(choir=><Link key={choir.id}
+            to={'/albums'+params({group:choir.id,q,filter,year})} className="choir-folder">
+            <FolderOpen size={31} strokeWidth={1.5} aria-hidden="true"/>
+            <span>{t(choir.nameEn,choir.nameAr)}</span></Link>)}</div>
+        </section>:<Feedback empty={t('No choirs are available yet.','مفيش كورالات متاحة للعرض حاليًا.')}/>}
+    </div>;
+  }
+  return <div className="shell page">
+    {selected&&resource==='albums'&&<Link className="text-link choir-back" to="/albums">{t('Choose another choir','اختار كورال تاني')}</Link>}
+    <Heading title={selected&&resource==='albums'?t(selected.nameEn,selected.nameAr):l(resource)}/><div className="filters">
     <label className="search-field"><Search size={19}/><input aria-label={l('search')} placeholder={l('search')} value={q} onChange={e=>update('q',e.target.value)}/></label>
     {(resource==='albums'||resource==='songs')&&<select aria-label={t('Featured filter','تصفية المميّزة')} value={filter} onChange={e=>update('filter',e.target.value)}>
       <option value="">{resource==='albums'?t('All albums','كل الألبومات'):t('All songs','كل الأغاني')}</option>
       <option value="featured">{t('Featured','مختارة')}</option></select>}
     {resource==='albums'&&<input type="number" min="1" max="9999" aria-label={t('Release year','سنة الإصدار')} placeholder={t('Release year','سنة الإصدار')} value={year} onChange={e=>update('year',e.target.value)}/>}
-    {resource==='albums'&&!!groups.data?.length&&<select aria-label={l('groups')} value={group} onChange={e=>update('group',e.target.value)}>
-      <option value="">{t('All choir groups','كل فرق الكورال')}</option>
-      {groups.data.map(x=><option key={x.id} value={x.id}>{t(x.nameEn,x.nameAr)}</option>)}</select>}
     {resource==='gallery'&&<><select aria-label={l('categories')} value={filter} onChange={e=>update('filter',e.target.value)}>
       <option value="">{t('All categories','كل التصنيفات')}</option>{categories.data?.items.map(x=><option key={x.id} value={x.id}>{t(x.titleEn,x.titleAr)}</option>)}</select>
       <select aria-label={t('Sort gallery','ترتيب المعرض')} value={sorting} onChange={e=>update('sort',e.target.value)}>
@@ -266,31 +280,33 @@ function Index({resource}:{resource:Resource}) {
     {resource==='events'&&<select aria-label={t('Event dates','تواريخ الفعاليات')} value={filter} onChange={e=>update('filter',e.target.value)}>
       <option value="">{t('Upcoming','القادمة')}</option><option value="past">{t('Past','السابقة')}</option></select>}
     </div>{query.isPending||query.isError?<Feedback pending={query.isPending} error={query.error} onRetry={()=>query.refetch()}/>:
-      query.data.items.length ? <>{resource==='songs'?<Tracklist entries={query.data.items}/>:<Cards items={query.data.items} resource={resource}/>}
+      query.data.items.length ? <>{resource==='songs'?<Tracklist entries={query.data.items}/>:<Cards items={query.data.items} resource={resource} groupId={selected?.id}/>}
         <Pager page={page} total={query.data.total} size={12} change={n=>update('page',String(n))}/></>:
-        <Feedback empty={t('No items to display.','لا توجد عناصر للعرض.')}/>}
+        <Feedback empty={resource==='albums'&&!q&&!year&&!filter?t('No albums have been added to this choir yet.','لسه مفيش ألبومات مضافة للكورال ده.'):
+          t('No items to display.','لا توجد عناصر للعرض.')}/>}
   </div>;
 }
-function Cards({items,resource}:{items:Entry[];resource:Resource}) {
-  const {t,date}=useLocale();
+function Cards({items,resource,groupId}:{items:Entry[];resource:Resource;groupId?:number}) {
+  const {t,date,profile}=useLocale();
   const [selected,setSelected]=useState<Entry>();
   const dialog=useRef<HTMLDialogElement>(null);
   useEffect(()=>{if(selected&&!dialog.current?.open)dialog.current?.showModal();},[selected]);
-  return <div className="cards">{items.map(item=>{
+  return <div className={groupId?'cards choir-album-list':'cards'}>{items.map(item=>{
     const title=t(item.titleEn,item.titleAr);
+    const albumUrl='/albums/'+item.slug+params({group:groupId});
     return <article className={'media-card '+resource} key={item.id}>
       {resource==='gallery'?<button className="media-trigger" onClick={()=>setSelected(item)} aria-label={title}>
         <Cover url={item.image} kind={resource}/>{item.video&&<span className="overlay-play"><Play size={22}/></span>}</button>:
-      resource==='albums'?<Link to={'/albums/'+item.slug} aria-label={title}><Cover url={item.image} kind={resource}/></Link>:<Cover url={item.image} kind={resource}/>}
-      {resource==='albums'&&<div className="album-platforms"><Platforms links={item.links} layout="compact"/></div>}
-      <div className="card-copy">{item.date&&<span className="metadata">{date(item.date,resource==='albums')}</span>}
-        <h3>{resource==='albums'?<Link to={'/albums/'+item.slug}>{title}</Link>:title}</h3>
-        {resource==='albums'&&item.trackCount>0&&<span className="metadata">{item.trackCount} {t(item.trackCount===1?'track':'tracks','مقطع')}</span>}
+      resource==='albums'?<Link to={albumUrl} aria-label={title}><Cover url={item.image||(groupId?profile.logo:'')} kind={resource}/></Link>:<Cover url={item.image} kind={resource}/>}
+      {resource==='albums'&&!groupId&&<div className="album-platforms"><Platforms links={item.links} layout="compact"/></div>}
+      <div className="card-copy">{item.date&&!groupId&&<span className="metadata">{date(item.date,resource==='albums')}</span>}
+        <h3>{resource==='albums'?<Link to={albumUrl}>{title}</Link>:title}</h3>
+        {resource==='albums'&&!groupId&&item.trackCount>0&&<span className="metadata">{item.trackCount} {t(item.trackCount===1?'track':'tracks','مقطع')}</span>}
         {resource==='members'&&<span className="metadata">{t(item.positionEn,item.positionAr)}</span>}
         {resource==='events'&&<span className="metadata">{[item.location,item.end&&date(item.end),item.status==='cancelled'?t('Cancelled','ملغاة'):item.status==='postponed'?t('Postponed','مؤجلة'):''].filter(Boolean).join(' · ')}</span>}
-        {(resource==='gallery'?t(item.captionEn,item.captionAr):t(item.descriptionEn,item.descriptionAr))&&
+        {!groupId&&(resource==='gallery'?t(item.captionEn,item.captionAr):t(item.descriptionEn,item.descriptionAr))&&
           <p className="prose">{resource==='gallery'?t(item.captionEn,item.captionAr):t(item.descriptionEn,item.descriptionAr)}</p>}
-        {resource==='albums'&&<Link className="text-link" to={'/albums/'+item.slug}>{t('View album','عرض الألبوم')}</Link>}
+        {resource==='albums'&&<Link className="text-link" to={albumUrl}>{t('View album','عرض الألبوم')}</Link>}
         {resource==='events'&&item.registration&&<a className="text-link" href={item.registration} target="_blank" rel="noreferrer">{t('Register','التسجيل')}</a>}
       </div></article>;
     })}{resource==='gallery'&&<dialog ref={dialog} onClose={()=>setSelected(undefined)} aria-labelledby="gallery-viewer-title">
@@ -350,6 +366,7 @@ function AlbumPlay({album}:{album:Entry}) {
 }
 function Detail({resource}:{resource:'albums'|'songs'}) {
   const {slug}=useParams();
+  const [search]=useSearchParams();
   const {t,l,date,lang}=useLocale();
   const query=useApi<Entry>(resource+'/'+slug);
   const playback=usePlayback();
@@ -361,7 +378,13 @@ function Detail({resource}:{resource:'albums'|'songs'}) {
   useTitle(title);
   if(!item)return <div className="shell page"><Feedback pending={query.isPending} error={query.error} onRetry={()=>query.refetch()}/></div>;
   const lyricLang=lyrics??(lang==='ar'&&item.lyricsAr?'ar':item.lyricsEn?'en':'ar');
-  return <div className="shell page"><Link className="text-link" to={'/'+resource}>{l(resource)}</Link>
+  const requestedGroup=Number(search.get('group'));
+  const groupId=item.groupIds?.includes(requestedGroup)?requestedGroup:item.groupIds?.length===1?item.groupIds[0]:undefined;
+  return <div className="shell page"><div className="actions">
+    <Link className="text-link" to={'/'+resource+params({group:groupId})}>
+      {groupId?t('Back to choir albums','ارجع لألبومات الكورال'):l(resource)}</Link>
+    {groupId&&<Link className="text-link" to="/albums">{t('Choose another choir','اختار كورال تاني')}</Link>}
+    </div>
     <div className="detail-grid"><Cover url={item.image} kind={resource}/><div><Heading title={title}/>
       {item.date&&<span className="metadata">{date(item.date)}</span>}{item.albumSlug&&<p><Link className="text-link" to={'/albums/'+item.albumSlug}>{t(item.albumTitleEn,item.albumTitleAr)}</Link></p>}
       <p className="prose">{t(item.descriptionEn,item.descriptionAr)}</p>

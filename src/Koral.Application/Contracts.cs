@@ -2,7 +2,7 @@ using FluentValidation;
 
 namespace Koral.Application;
 
-public sealed record Platform(string PlatformName = "", string Url = "", string Label = "", string Icon = "", int Sort = 0);
+public sealed record Platform(string PlatformName = "", string Url = "", string Label = "", string Icon = "", int Sort = 0, bool Enabled = true);
 public sealed record Content(
     int Id = 0, string TitleEn = "", string TitleAr = "", string DescriptionEn = "", string DescriptionAr = "",
     string Image = "", bool Published = false, bool Featured = false, int Sort = 0, string Slug = "",
@@ -54,7 +54,7 @@ public sealed class ContentValidator : AbstractValidator<Content>
         {
             RuleFor(x => x.GroupIds).Must(ids => ids is null || (ids.Count <= 50 && ids.All(id => id > 0)));
             RuleFor(x => x.Links).Must(links => links is null || links.Count <= 12);
-            RuleForEach(x => x.Links).NotNull().SetValidator(new PlatformValidator())
+            RuleForEach(x => x.Links).NotNull().SetValidator(new PlatformValidator(allowHiddenWithoutUrl: true))
                 .Must(IsAlbumLink).WithMessage("Use a full album or playlist link for this platform.");
         }
         if (resource == "songs")
@@ -94,6 +94,7 @@ public sealed class ContentValidator : AbstractValidator<Content>
 
     private static bool IsAlbumLink(Platform? link)
     {
+        if (link is { Enabled: false } && string.IsNullOrWhiteSpace(link.Url)) return true;
         if (link is null || !Uri.TryCreate(link.Url, UriKind.Absolute, out var url) || url.Scheme != "https")
             return false;
         var parts = url.AbsolutePath.Trim('/').Split('/');
@@ -114,10 +115,12 @@ public sealed class ContentValidator : AbstractValidator<Content>
 }
 public sealed class PlatformValidator : AbstractValidator<Platform>
 {
-    public PlatformValidator()
+    public PlatformValidator(bool allowHiddenWithoutUrl = false)
     {
         RuleFor(x => x.PlatformName).NotEmpty().MaximumLength(60);
-        RuleFor(x => x.Url).MaximumLength(2048).Must(InputRules.SafeUrl).WithMessage("Use an HTTP or HTTPS URL.");
+        RuleFor(x => x.Url).MaximumLength(2048)
+            .Must((link, url) => InputRules.SafeUrl(url) || (allowHiddenWithoutUrl && !link.Enabled && string.IsNullOrWhiteSpace(url)))
+            .WithMessage("Use an HTTP or HTTPS URL.");
         RuleFor(x => x.Label).NotNull().MaximumLength(120);
         RuleFor(x => x.Icon).NotNull().MaximumLength(40);
     }

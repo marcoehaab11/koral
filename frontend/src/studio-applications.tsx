@@ -28,6 +28,7 @@ export function ApplicationsList() {
   const [group,setGroup]=useState('');
   const [page,setPage]=useState(1);
   const groups=useApi<ChoirGroup[]>('choir-groups');
+  const recruitmentGroups=groups.data?.filter(row=>row.recruitmentEnabled!==false)??[];
   const result=useApi<Page<Applicant>>(endpoint+params({q:query,status,page,group}));
   const data=result.data;
   const pages=data?Math.max(1,Math.ceil(data.total/data.pageSize)):1;
@@ -37,9 +38,9 @@ export function ApplicationsList() {
         placeholder={t('Name, email, or phone','الاسم أو البريد أو التليفون')}
         onChange={event=>{setSearch(event.target.value);if(!event.target.value){setQuery('');setPage(1);}}}/></label>
       <StatusSelect filter value={status} change={v=>{setStatus(v);setPage(1);}}/>
-      {!!groups.data?.length&&<label>{l('groups')}<select value={group} onChange={e=>{setGroup(e.target.value);setPage(1);}}>
+      {!!recruitmentGroups.length&&<label>{l('groups')}<select value={group} onChange={e=>{setGroup(e.target.value);setPage(1);}}>
         <option value="">{t('All groups','كل الفرق')}</option><option value="0">{t('Unassigned','من غير فرقة')}</option>
-        {groups.data.map(row=><option key={row.id} value={row.id}>{t(row.nameEn,row.nameAr)}</option>)}
+        {recruitmentGroups.map(row=><option key={row.id} value={row.id}>{t(row.nameEn,row.nameAr)}</option>)}
       </select></label>}
       <button className="button outline"><Search size={16}/>{l('search')}</button>
     </form>

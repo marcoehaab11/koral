@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from '
 import { useQuery } from '@tanstack/react-query';
 
 export type Lang = 'en' | 'ar';
-export type Platform = { platformName: string; url: string; label: string; icon: string; sort: number };
+export type Platform = { platformName: string; url: string; label: string; icon: string; sort: number; enabled?:boolean };
 export type Entry = {
   id: number; titleEn: string; titleAr: string; descriptionEn: string; descriptionAr: string; image: string;
   published: boolean; featured: boolean; sort: number; slug: string; date: string | null; albumId: number | null;
@@ -12,7 +12,7 @@ export type Entry = {
   trackCount: number; albumSlug: string; albumTitleEn: string; albumTitleAr: string; updatedAt: string | null;
   captionEn: string; captionAr: string; groupIds?: number[] | null;
 };
-export type ChoirGroup = { id: number; nameEn: string; nameAr: string; accepting: boolean;
+export type ChoirGroup = { id: number; nameEn: string; nameAr: string; accepting: boolean; catalogSlot?:number|null; recruitmentEnabled?:boolean;
   recordingRequired: boolean; backingAudio: string; backingTitle: string };
 export type Profile = {
   nameEn: string; nameAr: string; logo: string; cover: string; introEn: string; introAr: string;
