@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from 'react';
+import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { Link, NavLink, Route, Routes, useLocation, useParams, useSearchParams } from 'react-router-dom';
 import { AudioLines, CalendarDays, Camera, Disc3, FolderOpen, Headphones, Menu, Music2, Play, Search, X } from 'lucide-react';
 import { motion, useReducedMotion } from 'framer-motion';
@@ -240,6 +240,9 @@ function Index({resource}:{resource:Resource}) {
   const groups=useApi<ChoirGroup[]>('choir-groups',resource==='albums');
   const selected=groups.data?.find(choir=>String(choir.id)===group);
   const choosingChoir=resource==='albums'&&!selected;
+  useLayoutEffect(()=>{
+    if(resource==='albums')window.scrollTo({top:0,behavior:'instant'});
+  },[resource,group]);
   const query=useApi<Page<Entry>>(resource+params({q,page,size:12,featured:(resource==='albums'||resource==='songs')&&filter==='featured'?true:undefined,
     year:resource==='albums'?year:undefined,group:resource==='albums'?selected?.id:undefined,
     category:resource==='gallery'&&Number(filter)>0?filter:undefined,
@@ -254,7 +257,7 @@ function Index({resource}:{resource:Resource}) {
   if(!allowed)return <div className="shell page"><Feedback error={new ApiError(404,'')}/></div>;
   if(choosingChoir){
     const choices=groups.data?.filter(choir=>choir.catalogSlot!=null)??[];
-    return <div className="shell page"><Heading title={l('albums')}/>
+    return <div className="shell page choir-index"><Heading title={l('albums')}/>
       {groups.isPending||groups.isError?<Feedback pending={groups.isPending} error={groups.error} onRetry={()=>groups.refetch()}/>:
         choices.length?<section aria-labelledby="album-choirs-title">
           <h2 className="album-choirs-title" id="album-choirs-title">{t('Choose a choir','اختار الكورال')}</h2>
@@ -265,8 +268,8 @@ function Index({resource}:{resource:Resource}) {
         </section>:<Feedback empty={t('No choirs are available yet.','مفيش كورالات متاحة للعرض حاليًا.')}/>}
     </div>;
   }
-  return <div className="shell page">
-    {selected&&resource==='albums'&&<Link className="text-link choir-back" to="/albums">{t('Choose another choir','اختار كورال تاني')}</Link>}
+  return <div className={'shell page'+(resource==='albums'?' choir-index':'')}>
+    {selected&&resource==='albums'&&<Link className="button outline choir-back" to="/albums">{t('Choose another choir','اختار كورال تاني')}</Link>}
     <Heading title={selected&&resource==='albums'?t(selected.nameEn,selected.nameAr):l(resource)}/><div className="filters">
     <label className="search-field"><Search size={19}/><input aria-label={l('search')} placeholder={l('search')} value={q} onChange={e=>update('q',e.target.value)}/></label>
     {(resource==='albums'||resource==='songs')&&<select aria-label={t('Featured filter','تصفية المميّزة')} value={filter} onChange={e=>update('filter',e.target.value)}>
