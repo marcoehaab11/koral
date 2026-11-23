@@ -24,6 +24,8 @@ public static class ContentEndpoints
         foreach (var resource in new[] { "albums", "songs" })
             app.MapGet("/api/" + resource + "/{slug}", async (string slug, Catalog catalog) =>
                 await catalog.Detail(resource, slug) is { } item ? Results.Ok(item) : Results.NotFound());
+        app.MapGet("/api/albums/{slug}/tracks", async (string slug, Catalog catalog) =>
+            await catalog.AlbumTracks(slug) is { } tracks ? Results.Ok(tracks) : Results.NotFound());
 
         app.MapGet("/api/search", async (Catalog catalog, string? q) =>
         {
@@ -67,15 +69,51 @@ public static class ContentEndpoints
                 await catalog.Get(resource, id) is { } item ? Results.Ok(item) : Results.NotFound());
             group.MapPost("/", (Catalog catalog, Content input, HttpContext http) => Save(catalog, resource, null, input, http));
             group.MapPut("/{id:int}", (Catalog catalog, int id, Content input, HttpContext http) => Save(catalog, resource, id, input, http));
-            group.MapDelete("/{id:int}", async (Catalog catalog, int id, HttpContext http) =>
-                await catalog.Delete(resource, id, Sessions.Actor(http)) ? Results.NoContent() : Results.NotFound());
+            group.MapDelete("/{id:int}", async (Catalog catalog, int id, int? tracks, int? groups, int? links, HttpContext http) =>
+            {
+                var confirmed = tracks.HasValue && groups.HasValue && links.HasValue ? new AlbumDeletion(tracks.Value, groups.Value, links.Value) : null;
+                return await catalog.Delete(resource, id, Sessions.Actor(http), confirmed) switch
+                {
+                    204 => Results.NoContent(),
+                    409 => Results.Problem("Review which tracks, groups and links are affected before deleting the album.", statusCode: 409),
+                    _ => Results.NotFound()
+                };
+            });
         }
+        admin.MapGet("/albums/{id:int}/delete-impact", async (Catalog catalog, int id) =>
+            await catalog.AlbumDeleteImpact(id) is { } impact ? Results.Ok(impact) : Results.NotFound());
+        admin.MapDelete("/songs/{id:int}/audio", DeleteSongAudio);
         admin.MapPut("/albums/{id:int}/order", async (Catalog catalog, int id, OrderInput input, HttpContext http) =>
             await catalog.Get("albums", id) is not null && input.Ids is not null && await catalog.Order(id, input.Ids, Sessions.Actor(http))
                 ? Results.NoContent() : Results.Problem("The tracklist changed. Reload before reordering.", statusCode: 409));
         var tracks = admin.MapGroup("/albums/{id:int}/tracks");
         tracks.MapPut("/{songId:int}", (Catalog catalog, int id, int songId, HttpContext http) => SetTrack(catalog, id, songId, true, http));
         tracks.MapDelete("/{songId:int}", (Catalog catalog, int id, int songId, HttpContext http) => SetTrack(catalog, id, songId, false, http));
+    }
+
+    static async Task<IResult> DeleteSongAudio(int id, string expected, KoralDb db, Catalog catalog, IMediaStorage storage, HttpContext http)
+    {
+        await using var tx = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
+        var song = await db.Songs.FindAsync(id);
+        if (song is null) return Results.NotFound();
+        if (!expected.StartsWith("/uploads/audio/") || !InputRules.SongAudio(expected) || song.Audio != expected)
+            return Results.Problem("The uploaded MP3 changed. Reload before deleting.", statusCode: 409);
+        if (await db.Songs.AnyAsync(x => x.Id != id && x.Audio == expected) ||
+            await db.ChoirGroups.AnyAsync(x => x.BackingAudio == expected) ||
+            await db.ChoirApplications.AnyAsync(x => x.BackingAudio == expected))
+            return Results.Problem("This file is shared. You can unlink it from the track instead.", statusCode: 409);
+        var name = expected.Split('/')[3];
+        var asset = await db.Media.SingleOrDefaultAsync(x => x.Bucket == "audio" && x.Name == name);
+        if (asset is not null) db.Media.Remove(asset);
+        song.Audio = "";
+        song.UpdatedAt = DateTimeOffset.UtcNow;
+        catalog.Audit(Sessions.Actor(http), "delete-audio", "songs", id);
+        await db.SaveChangesAsync();
+        try { storage.Remove("audio", name); }
+        catch (IOException) { return Results.Problem("Could not remove the MP3. Try again.", statusCode: 503); }
+        catch (UnauthorizedAccessException) { return Results.Problem("Could not remove the MP3. Check storage permissions.", statusCode: 503); }
+        await tx.CommitAsync();
+        return Results.NoContent();
     }
     static async Task<IResult> SetTrack(Catalog catalog, int album, int song, bool attach, HttpContext http)
     {
@@ -106,7 +144,12 @@ public static class ContentEndpoints
             var (row, error, missing) = await catalog.Save(resource, id, input, Sessions.Actor(http));
             if (missing) return Results.NotFound();
             if (error is not null)
-                return Results.ValidationProblem(new Dictionary<string, string[]> { [error] = [error == "slug" ? "This slug is already in use." : "Select an existing item."] });
+                return Results.ValidationProblem(new Dictionary<string, string[]> { [error] = [error switch
+                {
+                    "slug" => "This slug is already in use.",
+                    "links" => "Use a direct track link from YouTube, SoundCloud, Anghami or Spotify.",
+                    _ => "Select an existing item."
+                }] });
             return id.HasValue ? Results.Ok(row) : Results.Created($"/api/admin/{resource}/{row!.Id}", row);
         }
         catch (DbUpdateException exception) when (exception.InnerException is SqlException { Number: 2601 or 2627 or 547 })

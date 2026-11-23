@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { useApi, useLocale, write, type ChoirGroup } from './data';
-import { Fieldset, FormError, MediaField, Toggle } from './editor-fields';
+import { params, useApi, useLocale, write, type ChoirGroup } from './data';
+import { Confirm, Fieldset, FormError, MediaField, Toggle } from './editor-fields';
 import { Feedback } from './public';
 
 const endpoint='admin/choir-groups';
@@ -21,11 +21,11 @@ export function ChoirGroups() {
         {groups.data.map(row=><option key={row.id} value={row.id}>{t(row.nameEn,row.nameAr)}</option>)}
       </select>
     </label>
-    <GroupForm key={group.id} group={group} onSaved={row=>setSelected(row.id)}/>
+    <GroupForm key={group.id} group={group} groups={groups.data} onSaved={row=>setSelected(row.id)} onDeleted={()=>setSelected(0)}/>
   </>;
 }
 
-function GroupForm({group,onSaved}:{group:ChoirGroup;onSaved:(row:ChoirGroup)=>void}) {
+function GroupForm({group,groups,onSaved,onDeleted}:{group:ChoirGroup;groups:ChoirGroup[];onSaved:(row:ChoirGroup)=>void;onDeleted:()=>void}) {
   const {t}=useLocale();
   const [data,setData]=useState(group);
   const [uploads,setUploads]=useState(0);
@@ -33,6 +33,8 @@ function GroupForm({group,onSaved}:{group:ChoirGroup;onSaved:(row:ChoirGroup)=>v
   const [saved,setSaved]=useState(false);
   const [error,setError]=useState<unknown>();
   const cache=useQueryClient();
+  const path=endpoint+'/'+group.id;
+  const impact=useApi<{albums:number;applications:number;backing:boolean}>(path+'/delete-impact',!!group.id);
   function set<K extends keyof ChoirGroup>(key:K,value:ChoirGroup[K]) {
     setSaved(false);
     setData(row=>({...row,[key]:value}));
@@ -40,7 +42,7 @@ function GroupForm({group,onSaved}:{group:ChoirGroup;onSaved:(row:ChoirGroup)=>v
   return <form className="editor" onSubmit={async event=>{
     event.preventDefault();setBusy(true);setSaved(false);setError(undefined);
     try {
-      const row=await write<ChoirGroup>(endpoint+(group.id?'/'+group.id:''),group.id?'PUT':'POST',data);
+      const row=await write<ChoirGroup>(group.id?path:endpoint,group.id?'PUT':'POST',{...data,catalogSlot:data.catalogSlot??0});
       cache.setQueryData<ChoirGroup[]>([endpoint],list=>group.id?list?.map(item=>item.id===row.id?row:item):[...(list??[]),row]);
       void cache.invalidateQueries({queryKey:['choir-groups']});
       setData(row);setSaved(true);onSaved(row);
@@ -51,8 +53,15 @@ function GroupForm({group,onSaved}:{group:ChoirGroup;onSaved:(row:ChoirGroup)=>v
         <input value={data.nameEn} onChange={e=>set('nameEn',e.target.value)} required maxLength={120}/></label>
       <label>{t('Name in Arabic','الاسم بالعربي')}
         <input value={data.nameAr} onChange={e=>set('nameAr',e.target.value)} required maxLength={120}/></label>
-      {data.catalogSlot&&<Toggle title={t('Include this choir in recruitment','استخدم الكورال ده في التقديم')}
-        checked={data.recruitmentEnabled!==false} change={v=>set('recruitmentEnabled',v)}/>}
+      <label>{t('Position in the public albums catalogue','مكان الفرقة في اختيارات الألبومات')}
+        <select value={data.catalogSlot??0} onChange={e=>set('catalogSlot',Number(e.target.value)||null)}>
+          <option value={0}>{t('Hidden from the choir chooser','مخفية من اختيار الكورال')}</option>
+          {[1,2].map(slot=><option value={slot} key={slot} disabled={groups.some(row=>row.id!==group.id&&row.catalogSlot===slot)}>
+            {slot===1?t('First choice','الاختيار الأول'):t('Second choice','الاختيار الثاني')}</option>)}
+        </select>
+      </label>
+      <Toggle title={t('Include this choir in recruitment','استخدم الكورال ده في التقديم')}
+        checked={data.recruitmentEnabled!==false} change={v=>set('recruitmentEnabled',v)}/>
       {data.recruitmentEnabled!==false&&<>
         <Toggle title={t('Open for applications','التقديم مفتوح')} checked={data.accepting} change={v=>set('accepting',v)}/>
         <Toggle title={t('Require a voice recording','التسجيل الصوتي مطلوب')} checked={data.recordingRequired} change={v=>set('recordingRequired',v)}/>
@@ -68,6 +77,15 @@ function GroupForm({group,onSaved}:{group:ChoirGroup;onSaved:(row:ChoirGroup)=>v
     </Fieldset>}
     <FormError error={error}/>
     {saved&&<p role="status" className="form-success">{t('Group saved.','اتحفظت بيانات الفرقة.')}</p>}
-    <div><button className="button dark" disabled={busy||uploads>0}>{busy?t('Saving…','جاري الحفظ…'):t('Save choir group','احفظ الفرقة')}</button></div>
+    <div className="actions"><button className="button dark" disabled={busy||uploads>0}>{busy?t('Saving…','جاري الحفظ…'):t('Save choir group','احفظ الفرقة')}</button>
+      {!!group.id&&<Confirm title={t('Delete choir group','حذف الفرقة')} disabled={busy||uploads>0||!impact.data||impact.isFetching||impact.isError}
+        action={async()=>{await write(path+params(impact.data??{}),'DELETE');onDeleted();await cache.invalidateQueries();}}>
+        {impact.data&&t(
+          `${impact.data.albums} album assignments will be removed and ${impact.data.applications} applications will keep the former group name in their history. All albums, applications and audio files will stay.`,
+          `هيتشال ارتباط الفرقة بـ ${impact.data.albums} ألبوم، واسم الفرقة هيفضل محفوظ في سجل ${impact.data.applications} طلب. الألبومات والطلبات وملفات الصوت هتفضل موجودة.`)}
+        {impact.data?.backing&&' '+t('The group’s backing MP3 will stay in storage.','ملف الموسيقى المصاحبة هيفضل في التخزين.')}
+      </Confirm>}
+    </div>
+    {impact.isError&&<Feedback error={impact.error} onRetry={()=>impact.refetch()}/>}
   </form>;
 }

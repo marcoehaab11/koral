@@ -57,6 +57,7 @@ public sealed class SongPlatformLink
     public string Label { get; set; } = "";
     public string Icon { get; set; } = "";
     public int Sort { get; set; }
+    public bool Enabled { get; set; } = true;
 }
 public sealed class GalleryCategory : Entry;
 public sealed class GalleryItem : Entry

@@ -85,6 +85,7 @@ public static class RecruitmentEndpoints
             GroupId = group?.Id, BackingAudio = file is null ? "" : backingUrl,
             BackingTitle = file is null ? "" : backingTitle,
             RecordedWithBacking = input.RecordedWithBacking,
+            RecordingMixed = input.RecordedWithBacking && input.RecordingMixed,
             Revision = Guid.NewGuid(), CreatedAt = now, UpdatedAt = now
         };
         if (file is not null)
@@ -105,6 +106,11 @@ public static class RecruitmentEndpoints
         catch (DbUpdateException error) when (error.InnerException is SqlException { Number: 2601 or 2627 })
         {
             if (row.RecordingName != "") storage.Remove(Recordings, row.RecordingName);
+        }
+        catch (DbUpdateException error) when (error.InnerException is SqlException { Number: 547 })
+        {
+            if (row.RecordingName != "") storage.Remove(Recordings, row.RecordingName);
+            return Results.Problem("This choir group changed. Choose an available group and try again.", statusCode: 409);
         }
         catch
         {
@@ -148,15 +154,16 @@ public static class RecruitmentEndpoints
         var items = await rows.OrderByDescending(x => x.CreatedAt).ThenByDescending(x => x.Id)
             .Skip((number - 1) * size).Take(size)
             .Select(x => new ApplicationSummary(x.Id, x.Name, x.Email, x.Phone, x.Voice, x.Status, x.CreatedAt,
-                x.GroupId, x.Group == null ? "" : x.Group.NameEn, x.Group == null ? "" : x.Group.NameAr)).ToListAsync(ct);
+                x.GroupId, x.Group == null ? x.GroupNameEn : x.Group.NameEn,
+                x.Group == null ? x.GroupNameAr : x.Group.NameAr)).ToListAsync(ct);
         return new(items, count, number, size);
     }
 
     private static ApplicationDetail Map(ChoirApplication row) =>
         new(new(row.Id, row.Name, row.Email, row.Phone, row.Voice, row.Status, row.CreatedAt,
-                row.GroupId, row.Group?.NameEn ?? "", row.Group?.NameAr ?? ""),
+                row.GroupId, row.Group?.NameEn ?? row.GroupNameEn, row.Group?.NameAr ?? row.GroupNameAr),
             row.Experience, row.Notes, row.Revision, row.UpdatedAt, row.RecordingName == "" ? "" : $"/api/admin/applications/{row.Id}/recording",
-            row.BackingAudio, row.BackingTitle, row.RecordedWithBacking);
+            row.BackingAudio, row.BackingTitle, row.RecordedWithBacking, row.RecordingMixed);
 
     private static async Task<IResult> Detail(int id, KoralDb db, CancellationToken ct) =>
         await db.ChoirApplications.AsNoTracking().Include(x => x.Group).SingleOrDefaultAsync(x => x.Id == id, ct) is { } row

@@ -38,7 +38,9 @@ public sealed class KoralDb(DbContextOptions<KoralDb> options) : IdentityDbConte
         application.Property(x => x.Experience).HasMaxLength(1500);
         application.Property(x => x.Notes).HasMaxLength(4000);
         application.Property(x => x.Revision).IsConcurrencyToken();
-        application.HasIndex(x => new { x.NormalizedEmail, x.GroupId }).IsUnique().HasFilter(null);
+        application.Property(x => x.GroupNameEn).HasMaxLength(120);
+        application.Property(x => x.GroupNameAr).HasMaxLength(120);
+        application.HasIndex(x => new { x.NormalizedEmail, x.GroupId, x.FormerGroupId }).IsUnique().HasFilter(null);
         application.HasOne(x => x.Group).WithMany().OnDelete(DeleteBehavior.Restrict);
         application.HasIndex(x => new { x.Status, x.CreatedAt });
         b.Entity<ChoirGroup>().Property(x => x.NameEn).HasMaxLength(120);
@@ -47,6 +49,7 @@ public sealed class KoralDb(DbContextOptions<KoralDb> options) : IdentityDbConte
         b.Entity<ChoirGroup>().Property(x => x.RecruitmentEnabled).HasDefaultValue(true);
         b.Entity<AlbumPlatformLink>().Property(x => x.Url).HasMaxLength(2048);
         b.Entity<AlbumPlatformLink>().Property(x => x.Enabled).HasDefaultValue(true);
+        b.Entity<SongPlatformLink>().Property(x => x.Enabled).HasDefaultValue(true);
         b.Entity<ChoirProfile>().Property(x => x.Id).ValueGeneratedNever();
         b.Entity<SiteSetting>().Property(x => x.Id).ValueGeneratedNever();
         Configure<Album>(b);
@@ -111,6 +114,7 @@ public sealed class LocalMediaStorage : Koral.Application.IMediaStorage
             throw;
         }
     }
+    public bool Exists(string bucket, string name) => File.Exists(FilePath(bucket, name));
     public Stream? Open(string bucket, string name)
     {
         var path = FilePath(bucket, name);

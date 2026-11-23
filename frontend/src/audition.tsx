@@ -4,7 +4,7 @@ import { useLocale } from './data';
 export const recordingLimit=8*1024*1024;
 const recordingSeconds=90;
 const formats=['audio/webm;codecs=opus','audio/mp4','audio/ogg;codecs=opus','audio/webm'];
-export type Take={file:File;backing:string};
+export type Take={file:File;backing:string;mixed?:boolean};
 
 export function AuditionPlayer({voice,backing,beforePlay}:{voice:string;backing?:string;beforePlay?:()=>void}) {
   const {t}=useLocale();
@@ -58,12 +58,19 @@ export function Audition({backing,title,required,value,change,busyChanged,stopSi
   const audio=useRef<HTMLAudioElement>(null);
   const recorder=useRef<MediaRecorder|null>(null);
   const stream=useRef<MediaStream|null>(null);
+  const mixer=useRef<AudioContext|null>(null);
+  const loadingTrack=useRef<AbortController|null>(null);
   const timer=useRef<number|undefined>(undefined);
   const mounted=useRef(false);
 
   function stopMedia() {
     clearInterval(timer.current);
     audio.current?.pause();
+    loadingTrack.current?.abort();
+    loadingTrack.current=null;
+    const context=mixer.current;
+    mixer.current=null;
+    if(context&&context.state!=='closed')void context.close().catch(()=>{});
     stream.current?.getTracks().forEach(track=>track.stop());
     stream.current=null;
   }
@@ -73,7 +80,7 @@ export function Audition({backing,title,required,value,change,busyChanged,stopSi
       mounted.current=false;
       clearInterval(timer.current);
       if(recorder.current?.state==='recording')recorder.current.stop();
-      stream.current?.getTracks().forEach(track=>track.stop());
+      stopMedia();
       busyChanged(false);
     };
   },[busyChanged]);
@@ -92,15 +99,49 @@ export function Audition({backing,title,required,value,change,busyChanged,stopSi
   }
   async function start() {
     stopSitePlayback();
+    audio.current?.pause();
     setError('');setElapsed(0);setState('starting');busyChanged(true);
     let valid=true;
     let startingMusic=false;
     try {
+      // Unlock speaker output during the click, before the permission prompt.
+      const context=backing?new AudioContext():null;
+      mixer.current=context;
+      const ready=context?.resume();
+      void ready?.catch(()=>{});
       const mic=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true}});
       if(!mounted.current){mic.getTracks().forEach(track=>track.stop());return;}
       stream.current=mic;
+      let recordingStream=mic;
+      let music:AudioBufferSourceNode|undefined;
+      if(context){
+        startingMusic=true;
+        const abort=new AbortController();
+        loadingTrack.current=abort;
+        const response=await fetch(backing,{signal:abort.signal,headers:{Range:'bytes=0-'}});
+        if(!response.ok||response.status===204)throw new Error('Backing track unavailable');
+        const buffer=await context.decodeAudioData(await response.arrayBuffer());
+        await ready;
+        if(!mounted.current)return;
+        if(context.state!=='running')throw new Error('Audio output is unavailable');
+        const output=context.createMediaStreamDestination();
+        const voice=context.createGain();
+        const backingGain=context.createGain();
+        voice.gain.value=.7;
+        backingGain.gain.value=.28;
+        context.createMediaStreamSource(mic).connect(voice).connect(output);
+        music=context.createBufferSource();
+        music.buffer=buffer;
+        music.loop=true;
+        // Monitor just the music. The saved stream receives both inputs.
+        music.connect(backingGain);
+        backingGain.connect(context.destination);
+        backingGain.connect(output);
+        recordingStream=output.stream;
+        startingMusic=false;
+      }
       const mimeType=formats.find(type=>MediaRecorder.isTypeSupported(type));
-      const recording=new MediaRecorder(mic,mimeType?{mimeType}:undefined);
+      const recording=new MediaRecorder(recordingStream,{...(mimeType?{mimeType}:{}),audioBitsPerSecond:96000});
       const chunks:BlobPart[]=[];
       recorder.current=recording;
       recording.ondataavailable=event=>{if(event.data.size)chunks.push(event.data);};
@@ -117,18 +158,23 @@ export function Audition({backing,title,required,value,change,busyChanged,stopSi
         const type=recording.mimeType||mimeType||'audio/webm';
         const extension=type.includes('mp4')?'m4a':type.includes('ogg')?'ogg':'webm';
         const file=new File(chunks,'audition.'+extension,{type});
-        if(file.size&&file.size<=recordingLimit)change({file,backing});
+        if(file.size&&file.size<=recordingLimit)change({file,backing,mixed:!!music});
         else setError(t('Recording is empty or larger than 8 MB. Try again.','التسجيل فاضي أو أكبر من ٨ ميجابايت. حاول تاني.'));
       };
-      const music=audio.current;
-      if(music){music.pause();music.currentTime=0;}
-      if(backing&&music){
-        startingMusic=true;
-        await music.play();
-        startingMusic=false;
+      function interrupted() {
+        if(!mounted.current||recording.state!=='recording')return;
+        valid=false;
+        setError(t('Audio was interrupted. Try recording again.','الصوت اتقطع أثناء التسجيل. جرّب تسجّل تاني.'));
+        stop();
       }
-      if(!mounted.current)return;
+      mic.getAudioTracks().forEach(track=>track.addEventListener('ended',interrupted,{once:true}));
+      if(context){
+        context.onstatechange=()=>{
+          if(mixer.current===context&&context.state!=='running')interrupted();
+        };
+      }
       recording.start();
+      music?.start();
       change(null);setState('recording');
       const started=performance.now();
       timer.current=window.setInterval(()=>{
@@ -151,7 +197,7 @@ export function Audition({backing,title,required,value,change,busyChanged,stopSi
     }
   }
 
-  const canRecord=!!navigator.mediaDevices?.getUserMedia&&typeof MediaRecorder!=='undefined';
+  const canRecord=!!navigator.mediaDevices?.getUserMedia&&typeof MediaRecorder!=='undefined'&&(!backing||typeof AudioContext!=='undefined');
   return <fieldset className="join-audition wide">
     <legend>{required?t('Voice recording (required)','التسجيل الصوتي (مطلوب)'):t('Voice recording (optional)','التسجيل الصوتي (اختياري)')}</legend>
     {backing&&<>
@@ -167,6 +213,8 @@ export function Audition({backing,title,required,value,change,busyChanged,stopSi
             value?t('Record again','سجّل تاني'):t('Start recording','ابدأ التسجيل')}</button>}
       {state==='recording'&&<span role="timer">{elapsed} / {recordingSeconds} {t('sec','ثانية')}</span>}
     </div>}
+    {!canRecord&&<p className="metadata">{t('Recording is unavailable in this browser. You can upload an audio file below.',
+      'التسجيل مش متاح في المتصفح ده. تقدر ترفع ملف صوتي من الاختيار اللي تحت.')}</p>}
     <label>{t('Or upload an audio file (up to 8 MB)','أو ارفع ملف صوتي (لحد ٨ ميجابايت)')}
       <input type="file" accept=".webm,.ogg,.m4a,.mp4,.mp3,.wav,audio/*" disabled={state!=='ready'} onChange={e=>{
         const file=e.target.files?.[0];e.target.value='';if(!file)return;
@@ -175,7 +223,8 @@ export function Audition({backing,title,required,value,change,busyChanged,stopSi
       }}/>
     </label>
     {url&&state==='ready'&&<>
-      <AuditionPlayer key={url} voice={url} backing={value?.backing} beforePlay={()=>{stopSitePlayback();audio.current?.pause();}}/>
+      {value?.mixed&&<p>{t('Recording with music','التسجيل بالصوت والموسيقى')}</p>}
+      <AuditionPlayer key={url} voice={url} backing={value?.mixed?undefined:value?.backing} beforePlay={()=>{stopSitePlayback();audio.current?.pause();}}/>
       <button type="button" className="button outline" onClick={()=>change(null)}>{t('Remove recording','احذف التسجيل')}</button>
     </>}
     {error&&<p role="alert" className="form-error">{error}</p>}

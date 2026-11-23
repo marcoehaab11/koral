@@ -16,11 +16,15 @@ public sealed class ChoirApplication
     public Guid Revision { get; set; }
     public int? GroupId { get; set; }
     public ChoirGroup? Group { get; set; }
+    public int FormerGroupId { get; set; }
+    public string GroupNameEn { get; set; } = "";
+    public string GroupNameAr { get; set; } = "";
     public string RecordingName { get; set; } = "";
     public string RecordingType { get; set; } = "";
     public string BackingAudio { get; set; } = "";
     public string BackingTitle { get; set; } = "";
     public bool RecordedWithBacking { get; set; }
+    public bool RecordingMixed { get; set; }
 }
 
 public sealed class ChoirGroup

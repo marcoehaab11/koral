@@ -68,7 +68,7 @@ export function JoinChoir() {
       if(group?.recordingRequired&&!take){
         setFailure(new ApiError(400,t('Add a voice recording for this group.','ضيف تسجيل صوتي للفرقة دي.')));return;
       }
-      const application={...result.data,groupId:group?.id,backingAudio:take?.backing,recordedWithBacking:!!take?.backing};
+      const application={...result.data,groupId:group?.id,backingAudio:take?.backing,recordedWithBacking:!!take?.backing,recordingMixed:!!take?.mixed};
       try {
         if(take){
           const data=new FormData();

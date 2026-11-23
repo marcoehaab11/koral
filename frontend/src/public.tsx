@@ -2,11 +2,11 @@ import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState, type Reac
 import { Link, NavLink, Route, Routes, useLocation, useParams, useSearchParams } from 'react-router-dom';
 import { AudioLines, CalendarDays, Camera, Disc3, FolderOpen, Headphones, Menu, Music2, Play, Search, X } from 'lucide-react';
 import { motion, useReducedMotion } from 'framer-motion';
-import { ApiError, api, params, useApi, useLocale, type ChoirGroup, type Entry, type Page, type Platform, type Resource } from './data';
+import { ApiError, params, useApi, useLocale, type ChoirGroup, type Entry, type Page, type Platform, type Resource } from './data';
 
 import { clock } from './audio-player';
 import { PlaybackProvider, usePlayback } from './playback';
-import { sourcesFor, youtubeId } from './playback-sources';
+import { youtubeId } from './playback-sources';
 
 function youtube(url: string) { const id=youtubeId(url); return id ? 'https://www.youtube-nocookie.com/embed/'+id : undefined; }
 
@@ -301,7 +301,6 @@ function Cards({items,resource,groupId}:{items:Entry[];resource:Resource;groupId
       {resource==='gallery'?<button className="media-trigger" onClick={()=>setSelected(item)} aria-label={title}>
         <Cover url={item.image} kind={resource}/>{item.video&&<span className="overlay-play"><Play size={22}/></span>}</button>:
       resource==='albums'?<Link to={albumUrl} aria-label={title}><Cover url={item.image||(groupId?profile.logo:'')} kind={resource}/></Link>:<Cover url={item.image} kind={resource}/>}
-      {resource==='albums'&&!groupId&&<div className="album-platforms"><Platforms links={item.links} layout="compact"/></div>}
       <div className="card-copy">{item.date&&!groupId&&<span className="metadata">{date(item.date,resource==='albums')}</span>}
         <h3>{resource==='albums'?<Link to={albumUrl}>{title}</Link>:title}</h3>
         {resource==='albums'&&!groupId&&item.trackCount>0&&<span className="metadata">{item.trackCount} {t(item.trackCount===1?'track':'tracks','مقطع')}</span>}
@@ -321,51 +320,21 @@ function Cards({items,resource,groupId}:{items:Entry[];resource:Resource;groupId
         <p>{t(selected.descriptionEn,selected.descriptionAr)}</p></div>}
       </dialog>}</div>;
 }
-function Tracklist({entries}:{entries:Entry[]}) {
+function Tracklist({entries,albumGroup,inAlbum=false}:{entries:Entry[];albumGroup?:number;inAlbum?:boolean}) {
   const {t}=useLocale();
   const playback=usePlayback();
   return <div className="tracklist">{entries.map(item=><article className="track" key={item.id}>
     <Cover url={item.image} kind="songs"/><div className="track-name">
-      <Link to={'/songs/'+item.slug}>{t(item.titleEn,item.titleAr)}</Link>
-      {item.albumSlug&&<Link className="metadata" to={'/albums/'+item.albumSlug}>{t(item.albumTitleEn,item.albumTitleAr)}</Link>}</div>
+      <Link to={'/songs/'+item.slug+params({group:albumGroup})}>{t(item.titleEn,item.titleAr)}</Link>
+      {!inAlbum&&item.albumSlug&&<Link className="metadata" to={'/albums/'+item.albumSlug}>{t(item.albumTitleEn,item.albumTitleAr)}</Link>}</div>
     <div className="track-platforms"><Platforms links={item.links} layout="compact"/></div>
     <div className="track-controls">
       {!!item.duration&&<span className="metadata" dir="ltr">{clock(item.duration)}</span>}
-      {!!sourcesFor(item).length&&<button type="button" className={'icon-button track-play'+(playback.current===item.id?' playing':'')}
+      {item.audio?<button type="button" className={'icon-button track-play'+(playback.current===item.id?' playing':'')}
         aria-label={t('Play','شغّل')+' '+t(item.titleEn,item.titleAr)}
-        onClick={()=>playback.start([item])}><Play size={19}/></button>}
+        onClick={()=>playback.start([item])}><Play size={19}/></button>:<span className="metadata">{t('MP3 unavailable','ملف MP3 غير متاح')}</span>}
     </div>
   </article>)}</div>;
-}
-function AlbumPlay({album}:{album:Entry}) {
-  const {t}=useLocale();
-  const playback=usePlayback();
-  const [busy,setBusy]=useState(false);
-  const [error,setError]=useState('');
-  if(!album.trackCount)return null;
-  async function play() {
-    setBusy(true);
-    setError('');
-    const request=playback.begin();
-    try {
-      const first=await api<Page<Entry>>('songs'+params({album:album.id,size:100}));
-      const entries=[...first.items];
-      for(let page=2;page<=Math.ceil(first.total/first.pageSize);page++){
-        const next=await api<Page<Entry>>('songs'+params({album:album.id,size:100,page}));
-        entries.push(...next.items);
-      }
-      const unique=[...new Map(entries.map(item=>[item.id,item])).values()];
-      if(!unique.some(item=>sourcesFor(item).length))
-        setError(t('This album has no recordings that can play on the site yet.','مفيش تسجيلات متاحة للتشغيل على الموقع في الألبوم ده لسه.'));
-      else playback.start(unique,request);
-    }catch{setError(t('The album could not be loaded. Try again.','الألبوم ما اتحمّلش. حاول تاني.'));}
-    finally{setBusy(false);}
-  }
-  return <>
-    <button type="button" className="button dark" disabled={busy} onClick={()=>void play()}>
-      <Play size={17}/>{busy?t('Preparing album…','جاري تجهيز الألبوم…'):t('Play full album','شغّل الألبوم كامل')}</button>
-    {error&&<p className="form-error" role="alert">{error}</p>}
-  </>;
 }
 function Detail({resource}:{resource:'albums'|'songs'}) {
   const {slug}=useParams();
@@ -373,9 +342,8 @@ function Detail({resource}:{resource:'albums'|'songs'}) {
   const {t,l,date,lang}=useLocale();
   const query=useApi<Entry>(resource+'/'+slug);
   const playback=usePlayback();
-  const [page,setPage]=useState(1);
   const item=query.data;
-  const tracks=useApi<Page<Entry>>('songs'+params({album:item?.id,page,size:24}),resource==='albums'&&!!item);
+  const tracks=useApi<Entry[]>('albums/'+slug+'/tracks',resource==='albums'&&!!item);
   const [lyrics,setLyrics]=useState<'ar'|'en'|null>(null);
   const title=item?t(item.titleEn,item.titleAr):l(resource);
   useTitle(title);
@@ -384,24 +352,21 @@ function Detail({resource}:{resource:'albums'|'songs'}) {
   const requestedGroup=Number(search.get('group'));
   const groupId=item.groupIds?.includes(requestedGroup)?requestedGroup:item.groupIds?.length===1?item.groupIds[0]:undefined;
   return <div className="shell page"><div className="actions">
-    <Link className="text-link" to={'/'+resource+params({group:groupId})}>
-      {groupId?t('Back to choir albums','ارجع لألبومات الكورال'):l(resource)}</Link>
-    {groupId&&<Link className="text-link" to="/albums">{t('Choose another choir','اختار كورال تاني')}</Link>}
+    <Link className="text-link" to={resource==='songs'&&item.albumSlug?'/albums/'+item.albumSlug+params({group:requestedGroup||undefined}):'/'+resource+params({group:groupId})}>
+      {resource==='songs'&&item.albumSlug?t('Back to album','ارجع للألبوم'):groupId?t('Back to choir albums','ارجع لألبومات الكورال'):l(resource)}</Link>
+    {(groupId||requestedGroup>0)&&<Link className="text-link" to="/albums">{t('Choose another choir','اختار كورال تاني')}</Link>}
     </div>
     <div className="detail-grid"><Cover url={item.image} kind={resource}/><div><Heading title={title}/>
       {item.date&&<span className="metadata">{date(item.date)}</span>}{item.albumSlug&&<p><Link className="text-link" to={'/albums/'+item.albumSlug}>{t(item.albumTitleEn,item.albumTitleAr)}</Link></p>}
       <p className="prose">{t(item.descriptionEn,item.descriptionAr)}</p>
-      {resource==='albums'?<AlbumPlay album={item}/>:!!sourcesFor(item).length&&
+      {resource==='albums'?(tracks.data?.some(track=>track.audio)&&<button type="button" className="button dark" onClick={()=>playback.start(tracks.data??[])}><Play size={17}/>{t('Play full album','شغّل الألبوم كامل')}</button>):item.audio?
         <button type="button" className="button dark" onClick={()=>playback.start([item])}>
-          <Play size={17}/>{t('Play hymn','شغّل الترنيمة')}</button>}
-      {!!item.links?.length&&<section className="detail-listening">
-        <p>{resource==='albums'?t('Listen to the full album on','يمكنكم الاستماع إلى الألبوم كاملًا عبر'):
-          t('Listen to this hymn on','يمكنكم الاستماع إلى الترنيمة عبر')}</p>
-        <Platforms links={item.links} layout="detail"/>
+          <Play size={17}/>{t('Play hymn','شغّل الترنيمة')}</button>:<p className="metadata">{t('MP3 unavailable','ملف MP3 غير متاح')}</p>}
+      {resource==='songs'&&!!item.links?.length&&<section className="detail-listening"><p>{t('Listen to this hymn on','يمكنكم الاستماع إلى الترنيمة عبر')}</p><Platforms links={item.links} layout="detail"/>
       </section>}
     </div></div>
     {resource==='albums'?<section className="detail-section"><h2>{t('Tracklist','قائمة المقاطع')}</h2>
-      {tracks.data?.items.length?<><Tracklist entries={tracks.data.items}/><Pager page={page} total={tracks.data.total} size={24} change={setPage}/></>:
+      {tracks.data?.length?<Tracklist entries={tracks.data} albumGroup={groupId} inAlbum/>:
       <Feedback pending={tracks.isPending} error={tracks.error} empty={t('No published tracks yet.','لا توجد مقاطع منشورة بعد.')} onRetry={()=>tracks.refetch()}/>}</section>:
     <div className="prose-grid detail-section">{(item.lyricsEn||item.lyricsAr)&&<section><h2>{t('Lyrics','الكلمات')}</h2>
       {item.lyricsEn&&item.lyricsAr&&<div className="actions">

@@ -23,5 +23,5 @@ export type Applicant = {
 };
 export type ApplicationDetail = {
   applicant: Applicant; experience: string; notes: string; revision: string; updatedAt: string;
-  recordingUrl: string; backingAudio: string; backingTitle: string; recordedWithBacking: boolean;
+  recordingUrl: string; backingAudio: string; backingTitle: string; recordedWithBacking: boolean; recordingMixed?:boolean;
 };

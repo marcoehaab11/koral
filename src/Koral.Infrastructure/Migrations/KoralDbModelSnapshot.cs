@@ -201,8 +201,21 @@ namespace Koral.Infrastructure.Migrations
                         .HasMaxLength(1500)
                         .HasColumnType("nvarchar(1500)");
 
+                    b.Property<int>("FormerGroupId")
+                        .HasColumnType("int");
+
                     b.Property<int?>("GroupId")
                         .HasColumnType("int");
+
+                    b.Property<string>("GroupNameAr")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<string>("GroupNameEn")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -226,6 +239,9 @@ namespace Koral.Infrastructure.Migrations
                         .HasColumnType("nvarchar(30)");
 
                     b.Property<bool>("RecordedWithBacking")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("RecordingMixed")
                         .HasColumnType("bit");
 
                     b.Property<string>("RecordingName")
@@ -257,10 +273,10 @@ namespace Koral.Infrastructure.Migrations
 
                     b.HasIndex("GroupId");
 
-                    b.HasIndex("NormalizedEmail", "GroupId")
-                        .IsUnique();
-
                     b.HasIndex("Status", "CreatedAt");
+
+                    b.HasIndex("NormalizedEmail", "GroupId", "FormerGroupId")
+                        .IsUnique();
 
                     b.ToTable("ChoirApplications");
                 });
@@ -740,6 +756,11 @@ namespace Koral.Infrastructure.Migrations
                         .HasColumnType("int");
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("Enabled")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
 
                     b.Property<string>("Icon")
                         .IsRequired()

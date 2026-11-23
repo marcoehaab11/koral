@@ -52,6 +52,13 @@ test('choir folders show assigned albums and only enabled sources',async({page})
   const unassignedResponse=await mutate(api,'admin/albums','POST',{titleEn:'Unassigned Album',titleAr:'ألبوم غير مصنف',published:true});
   expect(unassignedResponse.status()).toBe(201);
   const unassigned=await unassignedResponse.json();
+  const trackUrl='https://open.spotify.com/track/37i9dQZF1DX4Wsb4d7NKfP';
+  const release=await mutate(api,'admin/songs','POST',{titleEn:'Catalogue track',titleAr:'تراك الألبوم',slug:'catalogue-track',
+    albumId:album.id,published:true,links:[{platformName:'Spotify',url:trackUrl},
+      {platformName:'SoundCloud',url:'https://soundcloud.com/example/track',enabled:false},
+      {platformName:'YouTube',url:'',enabled:false}]});
+  await expect(release).toBeOK();
+  const track=await release.json();
 
   await page.setViewportSize({width:390,height:850});
   await page.goto('/albums');
@@ -65,9 +72,13 @@ test('choir folders show assigned albums and only enabled sources',async({page})
   await page.locator('.choir-album-list img').evaluate(img=>(img as HTMLImageElement).decode());
   await page.screenshot({path:fileURLToPath(new URL('../../artifacts/visual/choir-album-folder-mobile.png',import.meta.url))});
   await page.getByRole('heading',{name:'Main Album',exact:true}).getByRole('link').click();
-  const sources=page.locator('.detail-listening');
-  await expect(sources.getByRole('link',{name:'Spotify'})).toHaveAttribute('href',urls.spotify);
+  const sources=page.locator('.track-platforms');
+  await expect(sources.getByRole('link',{name:'Spotify'})).toHaveAttribute('href',trackUrl);
   await expect(sources.getByRole('link')).toHaveCount(1);
+  await expect(page.getByText('MP3 unavailable')).toBeVisible();
+  await expect(page.getByRole('button',{name:'Play Catalogue track'})).toHaveCount(0);
+  await page.getByRole('link',{name:'Catalogue track'}).click();
+  await page.getByRole('link',{name:'Back to album'}).click();
   await page.getByRole('link',{name:'Back to choir albums'}).click();
   await expect(page.getByRole('heading',{name:'Main Choir',exact:true})).toBeVisible();
   await page.getByRole('link',{name:'Choose another choir'}).click();
@@ -84,13 +95,17 @@ test('choir folders show assigned albums and only enabled sources',async({page})
   await page.getByRole('button',{name:'Save published entry'}).click();
   await expect(page.getByText('Changes saved.')).toBeVisible();
   await page.goto('/albums/'+album.slug);
-  await expect(sources.getByRole('link',{name:'SoundCloud'})).toHaveAttribute('href',urls.soundcloud);
+  await expect(sources.getByRole('link',{name:'Spotify'})).toHaveAttribute('href',trackUrl);
   await expect(sources.getByRole('link')).toHaveCount(1);
   const publicAlbum=await (await api.get('/api/albums/'+album.slug)).json();
   expect(publicAlbum.links.map((link:{url:string})=>link.url)).toEqual([urls.soundcloud]);
 
-  for(const row of [album,juniorAlbum,unassigned])
-    expect((await mutate(api,'admin/albums/'+row.id,'DELETE')).status()).toBe(204);
+  await expect(await mutate(api,'admin/songs/'+track.id,'DELETE')).toBeOK();
+  for(const row of [album,juniorAlbum,unassigned]) {
+    const path='admin/albums/'+row.id;
+    const affected=await (await api.get('/api/'+path+'/delete-impact')).json();
+    expect((await mutate(api,path+'?'+new URLSearchParams(affected),'DELETE')).status()).toBe(204);
+  }
   await expect(await mutate(api,'admin/choir-groups/'+senior.id,'PUT',senior)).toBeOK();
 });
 
@@ -140,11 +155,11 @@ test('studio publishes an album and recording, protecting drafts and streaming b
   await page.getByLabel('MP3 audio',{exact:true}).setInputFiles({name:'tone.mp3',mimeType:'audio/mpeg',buffer:tone});
   await page.getByLabel('Lyrics (English)').fill('An evening line\nA second line');
   await page.getByLabel('Lyrics (Arabic)').fill('سطر المساء\nسطر ثان');
-  const links=[['Spotify','https://open.spotify.com/track/example'],['Anghami','https://play.anghami.com/song/123'],['YouTube','https://www.youtube.com/watch?v=M7lc1UVf-VE']];
+  const links=[['Spotify','https://open.spotify.com/track/37i9dQZF1DX4Wsb4d7NKfP'],['Anghami','https://play.anghami.com/song/123'],['YouTube','https://www.youtube.com/watch?v=M7lc1UVf-VE']];
   for(const [i,[platform,url]] of links.entries()){
     await page.getByRole('button',{name:'Add link'}).click();
     await page.getByRole('combobox',{name:'Platform '+(i+1),exact:true}).selectOption(platform);
-    await page.getByLabel('Link URL').nth(i).fill(url);
+    await page.getByLabel('Track URL').nth(i).fill(url);
   }
   await expect(page.getByRole('img',{name:'Cover image'})).toBeVisible();
   await expect(page.locator('audio')).toHaveAttribute('src',/\.mp3$/);
@@ -182,13 +197,10 @@ test('studio publishes an album and recording, protecting drafts and streaming b
     await expect(page.getByRole('link',{name:platform,exact:true})).toHaveAttribute('href',url);
     await expect(page.getByRole('link',{name:platform,exact:true})).toHaveAttribute('target','_blank');
   }
-  await page.route('https://www.youtube-nocookie.com/**',route=>route.fulfill({body:'Embedded player fixture'}));
   await page.getByRole('button',{name:'Play hymn'}).click();
   const dock=page.getByRole('complementary',{name:'Site player'});
-  await dock.getByRole('combobox',{name:'Playback source'}).selectOption({label:'YouTube'});
-  await expect(page.getByTitle('Player from YouTube')).toHaveAttribute('src',/youtube-nocookie\.com\/embed\/M7lc1UVf-VE\?/);
-  await dock.getByRole('combobox',{name:'Playback source'}).selectOption({label:'Site audio'});
-  await expect.poll(()=>page.locator('audio').evaluate(e=>(e as HTMLAudioElement).currentTime)).toBeGreaterThan(0);
+  await expect(dock.locator('iframe')).toHaveCount(0);
+  await expect.poll(()=>dock.locator('audio').evaluate(e=>(e as HTMLAudioElement).currentTime)).toBeGreaterThan(0);
   await page.getByRole('button',{name:'Pause',exact:true}).click();
   const range=await anonymous.get(song.audio,{headers:{Range:'bytes=0-127'}});
   expect(range.status()).toBe(206);
@@ -206,8 +218,42 @@ test('studio publishes an album and recording, protecting drafts and streaming b
   await expect(await mutate(api,songPath,'PUT',{...song,published:false})).toBeOK();
   expect((await anonymous.get('/api/songs/evening-tone')).status()).toBe(404);
   expect((await anonymous.get(song.audio)).status()).toBe(404);
-  expect((await mutate(api,songPath,'DELETE')).status()).toBe(204);
-  expect((await mutate(api,albumPath,'DELETE')).status()).toBe(204);
+  const other=await (await mutate(api,'admin/albums','POST',{...base,titleEn:'Destination album'})).json();
+  await page.goto('/ADMIN/songs/'+songId);
+  await page.getByRole('combobox',{name:'Albums',exact:true}).selectOption(String(other.id));
+  await page.getByRole('button',{name:'Save draft'}).click();
+  await expect(page.getByText('Changes saved.')).toBeVisible();
+  const moved=await (await api.get('/api/'+songPath)).json();
+  expect(moved).toMatchObject({id:songId,albumId:other.id,audio:song.audio});
+  expect(moved.links).toHaveLength(3);
+  const destination='admin/albums/'+other.id;
+  expect((await mutate(api,destination,'DELETE')).status()).toBe(409);
+  await page.goto('/ADMIN/albums/'+other.id);
+  await page.getByRole('button',{name:'Delete album'}).click();
+  await expect(page.getByRole('dialog')).toContainText('1 tracks will become unassigned');
+  await page.getByRole('button',{name:'Confirm deletion'}).click();
+  await expect(page).toHaveURL(/\/ADMIN\/albums$/);
+  expect(await (await api.get('/api/'+songPath)).json()).toMatchObject({albumId:null,audio:song.audio});
+  expect((await api.get(song.audio)).ok()).toBe(true);
+
+  const cloneResponse=await mutate(api,'admin/songs','POST',{...moved,slug:'shared-file',albumId:null});
+  await expect(cloneResponse).toBeOK();
+  const clone=await cloneResponse.json();
+  const audioDeletion=songPath+'/audio?expected='+encodeURIComponent(song.audio);
+  expect((await mutate(api,audioDeletion,'DELETE')).status()).toBe(409);
+  await expect(await mutate(api,'admin/songs/'+clone.id,'DELETE')).toBeOK();
+  await page.goto('/ADMIN/songs/'+songId);
+  await page.getByRole('button',{name:'Delete uploaded MP3'}).click();
+  await page.getByRole('button',{name:'Confirm deletion'}).click();
+  await expect(page.getByRole('dialog')).not.toBeVisible();
+  expect(await (await api.get('/api/'+songPath)).json()).toMatchObject({id:songId,audio:''});
+  expect((await api.get(song.audio)).status()).toBe(404);
+  await page.getByRole('button',{name:'Delete track permanently'}).click();
+  await page.getByRole('button',{name:'Confirm deletion'}).click();
+  await expect(page).toHaveURL(/\/ADMIN\/songs$/);
+  expect((await api.get('/api/'+songPath)).status()).toBe(404);
+  const impact=await (await api.get('/api/'+albumPath+'/delete-impact')).json();
+  expect((await mutate(api,albumPath+'?'+new URLSearchParams(impact),'DELETE')).status()).toBe(204);
   await anonymous.dispose();
 });
 

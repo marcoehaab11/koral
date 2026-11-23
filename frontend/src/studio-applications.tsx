@@ -48,7 +48,7 @@ export function ApplicationsList() {
       <><p className="metadata" role="status">{t('Matching applications','عدد الطلبات المطابقة')} · {data.total}</p>
         {data.items.length?<ul className="applicant-list">{data.items.map(item=><li key={item.id}>
           <Link to={String(item.id)}><strong dir="auto">{item.name}</strong><span className="metadata" dir="ltr">{item.email}</span>
-            {item.groupId&&<span className="metadata">{t(item.groupEn,item.groupAr)}</span>}</Link>
+            {(item.groupEn||item.groupAr)&&<span className="metadata">{t(item.groupEn,item.groupAr)}</span>}</Link>
           <span className={'status '+(item.status==='accepted'?'published':'')}>{t(statusLabels[item.status][0],statusLabels[item.status][1])}</span>
           <time className="metadata" dateTime={item.createdAt}>{date(item.createdAt)}</time>
         </li>)}</ul>:<Feedback empty={query||status||group?t('No applications match these filters.','مفيش طلبات مطابقة للبحث.'):
@@ -91,7 +91,7 @@ function ApplicationEditor({entry,reload}:{entry:ApplicationDetail;reload:()=>Pr
         <div><dt>{t('Email','البريد الإلكتروني')}</dt><dd><a dir="ltr" href={'mailto:'+encodeURIComponent(applicant.email)}><Mail size={16}/>{applicant.email}</a></dd></div>
         {applicant.phone&&<div><dt>{t('Phone','رقم التليفون')}</dt><dd><a dir="ltr" href={'tel:'+applicant.phone.replace(/[ ()]/g,'')}><Phone size={16}/>{applicant.phone}</a></dd></div>}
         <div><dt>{t('Voice part','الطبقة الصوتية')}</dt><dd>{t(voiceLabels[applicant.voice][0],voiceLabels[applicant.voice][1])}</dd></div>
-        {applicant.groupId&&<div><dt>{t('Choir group','فرقة الكورال')}</dt><dd>{t(applicant.groupEn,applicant.groupAr)}</dd></div>}
+        {(applicant.groupEn||applicant.groupAr)&&<div><dt>{t('Choir group','فرقة الكورال')}</dt><dd>{t(applicant.groupEn,applicant.groupAr)}</dd></div>}
         <div><dt>{t('Submitted','تاريخ التقديم')}</dt><dd>{date(applicant.createdAt)}</dd></div>
       </dl>
       {entry.experience&&<div><h2>{t('Singing experience','الخبرة في الغنا')}</h2><p className="prose" dir="auto">{entry.experience}</p></div>}
@@ -99,7 +99,7 @@ function ApplicationEditor({entry,reload}:{entry:ApplicationDetail;reload:()=>Pr
     {entry.recordingUrl&&<section className="panel application-info">
       <h2>{t('Voice recording','التسجيل الصوتي')}</h2>
       {entry.backingTitle&&<p>{entry.backingTitle}</p>}
-      <AuditionPlayer voice={entry.recordingUrl} backing={entry.recordedWithBacking?entry.backingAudio:undefined}/>
+      <AuditionPlayer voice={entry.recordingUrl} backing={entry.recordedWithBacking&&!entry.recordingMixed?entry.backingAudio:undefined}/>
     </section>}
     <form className="panel editor" onSubmit={async event=>{
       event.preventDefault();setBusy(true);setSaved(false);setError(undefined);

@@ -8,7 +8,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Koral.Infrastructure;
 
-public sealed class Catalog(KoralDb db)
+public sealed class Catalog(KoralDb db, IMediaStorage storage)
 {
     public async Task<Profile> Profile() => Decode(await db.Profiles.Where(x => x.Id == 1).Select(x => x.Data).SingleOrDefaultAsync(), new Profile());
     public async Task<Settings> Settings() => Decode(await db.Settings.Where(x => x.Id == 1).Select(x => x.Data).SingleOrDefaultAsync(), new Settings());
@@ -46,7 +46,7 @@ public sealed class Catalog(KoralDb db)
         };
         return admin ? q : q.Where(x => x.Published);
     }
-    private static Content Map(Entry e, bool admin)
+    private Content Map(Entry e, bool admin)
     {
         var item = new Content(e.Id, e.TitleEn, e.TitleAr, e.DescriptionEn, e.DescriptionAr, e.Image,
             e.Published, e.Featured, e.Sort, UpdatedAt: e.UpdatedAt);
@@ -62,9 +62,12 @@ public sealed class Catalog(KoralDb db)
                 AlbumTitleEn = admin || s.Album?.Published == true ? s.Album?.TitleEn ?? "" : "",
                 AlbumTitleAr = admin || s.Album?.Published == true ? s.Album?.TitleAr ?? "" : "",
                 AlbumSlug = admin || s.Album?.Published == true ? s.Album?.Slug ?? "" : "",
-                Audio = s.Audio, LyricsEn = s.LyricsEn, LyricsAr = s.LyricsAr, Composer = s.Composer, Lyricist = s.Lyricist,
+                Audio = admin ? s.Audio : PublicAudio(s.Audio), LyricsEn = s.LyricsEn, LyricsAr = s.LyricsAr,
+                Composer = s.Composer, Lyricist = s.Lyricist,
                 Arranger = s.Arranger, Conductor = s.Conductor, Duration = s.Duration,
-                Links = s.Links.OrderBy(l => l.Sort).ThenBy(l => l.Id).Select(l => new Platform(l.Platform, l.Url, l.Label, l.Icon, l.Sort)).ToList()
+                Links = s.Links.OrderBy(l => l.Sort).ThenBy(l => l.Id)
+                    .Select(l => new Platform(l.Platform, l.Url, l.Label, l.Icon, l.Sort, l.Enabled))
+                    .Where(l => admin || InputRules.TrackSource(l)).ToList()
             },
             GalleryItem g => item with { CategoryId = admin || g.Category?.Published == true ? g.CategoryId : null,
                 Video = g.Video, CaptionEn = g.CaptionEn, CaptionAr = g.CaptionAr },
@@ -72,6 +75,12 @@ public sealed class Catalog(KoralDb db)
             Event ev => item with { Date = ev.Date, End = ev.End, Status = ev.Status, Location = ev.Location, Registration = ev.Registration },
             _ => item
         };
+    }
+
+    private string PublicAudio(string audio)
+    {
+        if (!InputRules.SongAudio(audio)) return "";
+        return audio.StartsWith('/') && !storage.Exists("audio", audio.Split('/')[3]) ? "" : audio;
     }
 
     public async Task<Page<Content>> List(string resource, bool admin, string? search, int page, int size,
@@ -124,6 +133,14 @@ public sealed class Catalog(KoralDb db)
         var entry = await Query(resource, true).AsNoTracking().FirstOrDefaultAsync(x => x.Id == id);
         return entry is null ? null : Map(entry, true);
     }
+    public async Task<List<Content>?> AlbumTracks(string slug)
+    {
+        var id = await db.Albums.Where(x => x.Slug == slug && x.Published).Select(x => (int?)x.Id).SingleOrDefaultAsync();
+        if (id is null) return null;
+        var tracks = await db.Songs.AsNoTracking().Include(x => x.Album).Include(x => x.Links)
+            .Where(x => x.AlbumId == id && x.Published).OrderBy(x => x.Sort).ThenBy(x => x.Id).ToListAsync();
+        return tracks.Select(x => Map(x, false)).ToList();
+    }
     public async Task<bool> MediaExists(string path, string kind)
     {
         if (path == "") return true;
@@ -150,6 +167,7 @@ public sealed class Catalog(KoralDb db)
     }
     public async Task<(Content? Row, string? Error, bool Missing)> Save(string resource, int? id, Content input, string actor)
     {
+        await using var transaction = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
         Entry? entry = id.HasValue ? await Query(resource, true).FirstOrDefaultAsync(x => x.Id == id) : resource switch
         {
             "albums" => new Album(), "songs" => new Song(), "gallery" => new GalleryItem(),
@@ -184,14 +202,20 @@ public sealed class Catalog(KoralDb db)
             case Song s:
                 if (await db.Songs.AnyAsync(x => x.Id != id && x.Slug == input.Slug)) return (null, "slug", false);
                 if (input.AlbumId is int album && !await db.Albums.AnyAsync(x => x.Id == album)) return (null, "albumId", false);
-                if (!await MediaExists(input.Audio, "audio/")) return (null, "audio", false);
+                if (input.Audio.StartsWith('/') && !await MediaExists(input.Audio, "audio/")) return (null, "audio", false);
                 (s.Slug, s.Date, s.AlbumId, s.Audio, s.LyricsEn, s.LyricsAr) =
                     (input.Slug, input.Date, input.AlbumId, input.Audio, input.LyricsEn, input.LyricsAr);
                 (s.Composer, s.Lyricist, s.Arranger, s.Conductor, s.Duration) =
                     (input.Composer, input.Lyricist, input.Arranger, input.Conductor, input.Duration);
-                s.Links.Clear();
-                foreach (var l in input.Links ?? []) s.Links.Add(new SongPlatformLink
-                    { Platform = l.PlatformName, Url = l.Url, Label = l.Label, Icon = l.Icon, Sort = l.Sort });
+                if (input.Links is not null)
+                {
+                    if (input.Links.Any(l => l.Enabled && !InputRules.TrackSource(l) &&
+                        !s.Links.Any(existing => existing.Enabled && existing.Platform == l.PlatformName && existing.Url == l.Url)))
+                        return (null, "links", false);
+                    s.Links.Clear();
+                    foreach (var l in input.Links) s.Links.Add(new SongPlatformLink
+                        { Platform = l.PlatformName.Trim(), Url = l.Url?.Trim() ?? "", Label = l.Label, Icon = l.Icon, Sort = l.Sort, Enabled = l.Enabled });
+                }
                 break;
             case GalleryItem g:
                 if (input.CategoryId is int category && !await db.Categories.AnyAsync(x => x.Id == category)) return (null, "categoryId", false);
@@ -209,7 +233,6 @@ public sealed class Catalog(KoralDb db)
             (input.TitleEn.Trim(), input.TitleAr.Trim(), input.DescriptionEn, input.DescriptionAr);
         (entry.Image, entry.Published, entry.Featured, entry.Sort, entry.UpdatedAt) =
             (input.Image, input.Published, input.Featured, input.Sort, DateTimeOffset.UtcNow);
-        await using var transaction = await db.Database.BeginTransactionAsync();
         if (!id.HasValue) db.Add(entry);
         await db.SaveChangesAsync();
         Audit(actor, id.HasValue ? "update" : "create", resource, entry.Id);
@@ -217,14 +240,24 @@ public sealed class Catalog(KoralDb db)
         await transaction.CommitAsync();
         return (Map(entry, true), null, false);
     }
-    public async Task<bool> Delete(string resource, int id, string actor)
+    public Task<AlbumDeletion?> AlbumDeleteImpact(int id) => db.Albums.Where(x => x.Id == id)
+        .Select(x => new AlbumDeletion(x.Songs.Count, x.Groups.Count, x.Links.Count)).SingleOrDefaultAsync();
+
+    public async Task<int> Delete(string resource, int id, string actor, AlbumDeletion? confirmed)
     {
+        await using var tx = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
         var entity = await Query(resource, true).FirstOrDefaultAsync(x => x.Id == id);
-        if (entity is null) return false;
+        if (entity is null) return 404;
+        if (entity is Album album)
+        {
+            var actual = new AlbumDeletion(album.Songs.Count, album.Groups.Count, album.Links.Count);
+            if (actual != new AlbumDeletion(0, 0, 0) && actual != confirmed) return 409;
+        }
         db.Remove(entity);
         Audit(actor, "delete", resource, id);
         await db.SaveChangesAsync();
-        return true;
+        await tx.CommitAsync();
+        return 204;
     }
     public async Task<bool> Order(int album, List<int> ids, string actor)
     {

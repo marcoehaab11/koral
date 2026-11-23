@@ -48,13 +48,13 @@ public static class MediaEndpoints
                 catch { storage.Remove(bucket, name); throw; }
                 return Results.Ok(new { url = $"/uploads/{bucket}/{name}", size = file.Length, contentType = type });
             });
-        app.MapMethods("/uploads/{bucket}/{name}", ["GET", "HEAD"], async (string bucket, string name, IMediaStorage storage, KoralDb db, HttpContext http) =>
+        app.MapMethods("/uploads/{bucket}/{name}", ["GET", "HEAD"], async (string bucket, string name, IMediaStorage storage, KoralDb db, Catalog catalog, HttpContext http) =>
         {
             var path = $"/uploads/{bucket}/{name}";
             if (!InputRules.Media(path)) return Results.NotFound();
             var asset = await db.Media.AsNoTracking().SingleOrDefaultAsync(x => x.Bucket == bucket && x.Name == name);
             if (asset is null) return Results.NotFound();
-            var published = await IsPublic(db, bucket, path);
+            var published = await IsPublic(db, catalog, bucket, path);
             if (!published)
             {
                 if (!http.User.IsInRole("SuperAdmin") && !http.User.IsInRole("ContentEditor")) return Results.NotFound();
@@ -67,11 +67,10 @@ public static class MediaEndpoints
             return Results.File(stream, asset.ContentType, enableRangeProcessing: true);
         });
     }
-    static async Task<bool> IsPublic(KoralDb db, string bucket, string path)
+    static async Task<bool> IsPublic(KoralDb db, Catalog catalog, string bucket, string path)
     {
         if (bucket == "choir")
         {
-            var catalog = new Catalog(db);
             var profile = await catalog.Profile();
             var settings = await catalog.Settings();
             if (profile.Logo == path || profile.Cover == path || profile.CoverMobile == path ||
@@ -81,7 +80,7 @@ public static class MediaEndpoints
         if (await db.Songs.AnyAsync(x => x.Published && (x.Image == path || x.Audio == path))) return true;
         if (bucket == "audio" && await db.ChoirGroups.AnyAsync(x => x.RecruitmentEnabled && x.Accepting && x.BackingAudio == path)) return true;
         if (await db.Gallery.AnyAsync(x => x.Published && (x.Image == path || x.Video == path))) return true;
-        var visibility = await new Catalog(db).Settings();
+        var visibility = await catalog.Settings();
         return (visibility.Members && await db.Members.AnyAsync(x => x.Published && x.Image == path)) ||
             (visibility.Events && await db.Events.AnyAsync(x => x.Published && x.Image == path));
     }

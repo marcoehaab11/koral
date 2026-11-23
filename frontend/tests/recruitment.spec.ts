@@ -1,10 +1,26 @@
 import { expect, test } from '@playwright/test';
 import { fileURLToPath } from 'node:url';
+import { writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 
-test.use({launchOptions:{args:['--use-fake-device-for-media-stream','--use-fake-ui-for-media-stream']}});
+const microphone=process.env.KORAL_QA_MIC_WAV;
+const audioEvidence=process.env.KORAL_QA_AUDIO_DIR;
+test.use({launchOptions:{args:['--use-fake-device-for-media-stream','--use-fake-ui-for-media-stream',
+  ...(microphone?['--use-file-for-fake-audio-capture='+microphone]:[])]}});
 
 test('bilingual application with default backing reaches the CRM and remains editable', async ({page,request,context}) => {
   await context.grantPermissions(['microphone']);
+  await page.addInitScript(()=>{
+    const connect=AudioNode.prototype.connect;
+    AudioNode.prototype.connect=function(this:AudioNode,...args:unknown[]) {
+      if(args[0]===this.context.destination&&this instanceof GainNode){
+        const probe=this.context.createAnalyser();
+        Reflect.apply(connect,this,[probe]);
+        Object.assign(window,{auditionSpeaker:probe});
+      }
+      return Reflect.apply(connect,this,args);
+    } as typeof connect;
+  });
   expect((await request.get('/api/admin/applications')).status()).toBe(401);
   expect((await request.post('/api/join',{data:{name:'Salma Example'}})).status()).toBe(400);
   expect((await request.get('/api/join')).ok()).toBe(false);
@@ -28,10 +44,17 @@ test('bilingual application with default backing reaches the CRM and remains edi
   await page.getByLabel('خبرتك في الغنا (اختياري)',{exact:true}).fill('خبرة في غناء الكورال');
   await page.getByRole('checkbox').check();
   await page.getByRole('button',{name:'ابدأ التسجيل'}).click();
-  const backing=page.locator('audio[aria-label="اسمع التراك المصاحب"]');
-  await expect.poll(()=>backing.evaluate((audio:HTMLAudioElement)=>!audio.paused&&audio.currentTime>.15)).toBe(true);
+  await expect(page.getByRole('timer')).toContainText('3 / 90');
+  await expect.poll(()=>page.evaluate(()=>{
+    const probe=(window as Window & {auditionSpeaker?:AnalyserNode}).auditionSpeaker;
+    if(!probe||probe.context.state!=='running')return 0;
+    const wave=new Float32Array(probe.fftSize);
+    probe.getFloatTimeDomainData(wave);
+    return Math.sqrt(wave.reduce((sum,x)=>sum+x*x,0)/wave.length);
+  })).toBeGreaterThan(.001);
   await page.getByRole('button',{name:'وقّف التسجيل'}).click();
-  await expect(page.getByRole('button',{name:'اسمع الصوت مع الموسيقى'})).toBeVisible();
+  await expect(page.getByText('التسجيل بالصوت والموسيقى')).toBeVisible();
+  await expect(page.getByLabel('التسجيل الصوتي',{exact:true})).toBeVisible();
   await page.getByRole('button',{name:'ابعت طلب الانضمام'}).click();
   await expect(page.getByRole('heading',{name:'طلبك وصل'})).toBeFocused();
 
@@ -59,6 +82,8 @@ test('bilingual application with default backing reaches the CRM and remains edi
   const detailPath='/api/admin/applications/'+page.url().split('/').at(-1);
   const original=(await (await page.request.get(detailPath)).json());
   expect(original.recordedWithBacking).toBe(true);
+  expect(original.recordingMixed).toBe(true);
+  if(audioEvidence)writeFileSync(join(audioEvidence,'default-mixed.webm'),await (await page.request.get(original.recordingUrl)).body());
   expect(original.backingAudio).toBe((await (await request.get('/api/join/backing')).json()).url);
   await page.getByRole('combobox',{name:'Application status'}).selectOption('audition');
   await page.getByLabel('Internal notes').fill('Schedule a voice check.');
@@ -105,10 +130,12 @@ test.describe('group auditions', () => {
     const headers={'X-CSRF-TOKEN':token};
     const trackOnly={...album,links:[{...links[0],url:'https://open.spotify.com/track/37i9dQZF1DX4Wsb4d7NKfP'}]};
     expect((await page.request.post('/api/admin/albums',{headers,data:trackOnly})).status()).toBe(400);
-    expect((await page.request.post('/api/admin/albums',{headers,data:album})).status()).toBe(201);
+    const savedAlbum=await page.request.post('/api/admin/albums',{headers,data:album});
+    expect(savedAlbum.status()).toBe(201);
+    const {id:albumId}=await savedAlbum.json();
     await page.goto('/albums?group='+groupId);
     await page.getByRole('heading',{name:'Group album',exact:true}).getByRole('link').click();
-    await expect(page.getByRole('link',{name:'Spotify',exact:true})).toHaveAttribute('href',links[0].url);
+    await expect(page.getByRole('link',{name:'Spotify',exact:true})).toHaveCount(0);
 
     await page.setViewportSize({width:390,height:844});
     await page.goto('/join');
@@ -119,7 +146,7 @@ test.describe('group auditions', () => {
     await page.getByRole('button',{name:'Send application'}).click();
     await expect(page.getByRole('alert')).toContainText('Add a voice recording');
     await page.getByRole('button',{name:'Start recording'}).click();
-    await expect(page.getByRole('timer')).toContainText('1 / 90');
+    await expect(page.getByRole('timer')).toContainText('3 / 90');
     await page.screenshot({path:fileURLToPath(new URL('../../artifacts/visual/audition-mobile.png',import.meta.url)),fullPage:true});
     await page.getByRole('button',{name:'Stop recording'}).click();
     await expect(page.getByLabel('Voice recording',{exact:true})).toBeVisible();
@@ -129,13 +156,33 @@ test.describe('group auditions', () => {
     await page.goto('/ADMIN/applications');
     await page.getByRole('combobox',{name:'Choir groups',exact:true}).selectOption(String(groupId));
     await page.getByRole('link',{name:/Audition Example/}).click();
-    await expect(page.getByRole('button',{name:'Play voice with backing track'})).toBeVisible();
+    const player=page.getByLabel('Voice recording',{exact:true});
+    await expect(player).toBeVisible();
+    await expect(page.getByRole('button',{name:'Play voice with backing track'})).toHaveCount(0);
     const path='/api/admin/applications/'+page.url().split('/').at(-1)+'/recording';
     expect((await request.get(path)).status()).toBe(401);
     const media=await page.request.get(path,{headers:{Range:'bytes=0-11'}});
     expect(media.status()).toBe(206);
     expect(media.headers()['cache-control']).toContain('no-store');
-    await page.getByRole('button',{name:'Play voice with backing track'}).click();
-    await expect(page.getByRole('button',{name:'Listen to voice only'})).toBeVisible();
+    if(audioEvidence)writeFileSync(join(audioEvidence,'custom-mixed.webm'),await (await page.request.get(path)).body());
+    await player.evaluate((audio:HTMLAudioElement)=>audio.play());
+    await expect.poll(()=>player.evaluate((audio:HTMLAudioElement)=>audio.currentTime)).toBeGreaterThan(.1);
+    const applicantPath=path.replace('/recording','');
+    expect((await page.request.delete('/api/admin/choir-groups/'+groupId,{headers})).status()).toBe(409);
+    await page.goto('/ADMIN/choir-groups');
+    await page.getByLabel('Select a choir group').selectOption(String(groupId));
+    await page.getByRole('button',{name:'Delete choir group'}).click();
+    const confirmation=page.getByRole('dialog');
+    await expect(confirmation).toContainText('1 album assignments');
+    await expect(confirmation).toContainText('1 applications');
+    await expect(confirmation).toContainText('backing MP3 will stay');
+    await confirmation.getByRole('button',{name:'Confirm deletion'}).click();
+    await expect(page.getByLabel('Select a choir group')).toHaveValue('0');
+    const preserved=await (await page.request.get(applicantPath)).json();
+    expect(preserved.applicant).toMatchObject({groupId:null,groupEn:'Adult choir'});
+    expect(preserved.recordingMixed).toBe(true);
+    expect((await page.request.get(path)).ok()).toBe(true);
+    expect((await (await page.request.get('/api/admin/albums/'+albumId)).json()).groupIds).toEqual([]);
+    expect((await page.request.get(preserved.backingAudio)).ok()).toBe(true);
   });
 });

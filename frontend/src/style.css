@@ -152,14 +152,10 @@ textarea{resize:vertical}
 .platforms-detail{gap:4px 20px;margin:0}
 .platforms-detail .platform{gap:8px;font-size:.95rem}
 .platforms-detail .platform img{inline-size:24px;block-size:24px}
-.album-platforms{min-block-size:34px;margin-block-start:8px}
-.albums .album-platforms+.card-copy{margin-block-start:4px}
 .join-audition{min-inline-size:0;display:grid;gap:12px;border:1px solid var(--line);padding:16px}
 .join-audition audio[controls],.audition-player audio[controls]{display:block;inline-size:100%;max-inline-size:380px}
 .audition-player{display:grid;gap:8px}
 .platform:hover{text-decoration:underline}
-.recording-embed iframe{display:block;border:0;inline-size:100%;aspect-ratio:16/9;margin-block-start:12px}
-.recording-embed iframe.music{aspect-ratio:auto;block-size:152px}
 .tracklist{display:grid}
 .track{display:grid;grid-template-columns:54px minmax(0,1fr) 136px 92px;align-items:center;gap:10px 15px;padding:10px 0;border-block-end:1px solid var(--line)}
 .track-name{display:grid;gap:2px;overflow-wrap:anywhere}
@@ -192,14 +188,11 @@ textarea{resize:vertical}
 .playback-tools .icon-button:not(:disabled):hover,.playback-tools .icon-button[aria-expanded=true]{background:#47614c}
 .playback-body{padding:8px;display:grid;gap:6px}
 .playback-body .player{border:0;background:#edf0e6}
-.provider-player iframe{border:0;display:block;inline-size:100%;border-radius:4px}
 .provider-audio{min-block-size:152px}
 .provider-audio iframe{block-size:166px}
 .provider-video iframe{aspect-ratio:16/9;min-block-size:200px}
 .provider-status{display:grid;gap:4px;padding:6px;font-size:.86rem}
 .provider-retry{background:none;border:0;padding:0;cursor:pointer}
-.playback-source{display:flex;gap:7px;justify-content:end;align-items:center;font-size:.83rem}
-.playback-source select{font-size:inherit;min-block-size:34px;padding-block:3px}
 .playback-list{margin:0;padding:4px 10px 10px;list-style:none;max-block-size:165px;overflow:auto}
 .playback-list button{display:flex;gap:8px;text-align:start;border:0;background:none;inline-size:100%;padding:6px;border-radius:4px}
 .playback-list button:hover,.playback-list button[aria-current=true]{background:#e5ebde;color:#294832}

@@ -50,6 +50,9 @@ function Editor({resource,item}:{resource:Resource;item?:Entry}) {
   const navigate=useNavigate();
   const path='admin/'+resource+(item?'/'+item.id:'');
   const groups=useApi<ChoirGroup[]>('choir-groups',resource==='albums');
+  const impact=useApi<{tracks:number;groups:number;links:number}>(path+'/delete-impact',resource==='albums'&&!!item);
+  const audio=text(data.audio);
+  const uploaded=audio.startsWith('/uploads/audio/');
   const set=(key:string,value:unknown)=>{setSaved(false);setData(d=>({...d,[key]:value}));};
   const input=(f:Field)=><FieldInput key={f.key} item={f} value={data[f.key]} change={v=>set(f.key,v)}/>;
   const media=(key:string,title:string,bucket:string,kind:'image'|'audio'|'video')=><MediaField title={title} value={text(data[key])}
@@ -60,7 +63,7 @@ function Editor({resource,item}:{resource:Resource;item?:Entry}) {
     event.preventDefault();setError(undefined);setSaved(false);
     const validation=z.object({titleEn:z.string().trim().min(1).max(180),titleAr:z.string().trim().min(1).max(180)}).safeParse(data);
     if(!validation.success){setError(new ApiError(400,t('Enter both titles, up to 180 characters each.','أدخل العنوانين، بحد أقصى ١٨٠ حرفاً لكل منهما.')));return;}
-    if(links.some(x=>!(resource==='albums'&&x.enabled===false&&!x.url.trim())&&!z.url({protocol:/^https?$/}).safeParse(x.url).success)){
+    if(links.some(x=>!(x.enabled===false&&!x.url.trim())&&!z.url({protocol:/^https?$/}).safeParse(x.url).success)){
       setError(new ApiError(400,t('Use HTTP or HTTPS links.','استخدم روابط HTTP أو HTTPS.')));return;
     }
     setBusy(true);
@@ -79,19 +82,36 @@ function Editor({resource,item}:{resource:Resource;item?:Entry}) {
         {pair('description',resource==='members'?'Biography':'Description',
           resource==='members'?'السيرة':'الوصف','textarea').map(input)}
         {fields[resource].map(input)}
-        {resource==='songs'&&<Relationship resource="albums" value={data.albumId} change={v=>set('albumId',v)}/>}
+        {resource==='songs'&&<div>
+          <Relationship resource="albums" value={data.albumId} change={v=>set('albumId',v)}/>
+          {item&&<p className="metadata">{t('Select an album to move this track, or choose None to remove it from its album.',
+            'اختار ألبوم تاني لنقل التراك، أو اختار «بدون» لفصله عن ألبومه.')}</p>}
+        </div>}
         {resource==='gallery'&&<Relationship resource="categories" value={data.categoryId} change={v=>set('categoryId',v)}/>}
         {resource==='events'&&<label>{t('Event status','حالة الفعالية')}<select value={text(data.status)} onChange={e=>set('status',e.target.value)}>
           <option value="scheduled">{t('Scheduled','مجدولة')}</option><option value="postponed">{t('Postponed','مؤجلة')}</option><option value="cancelled">{t('Cancelled','ملغاة')}</option></select></label>}
       </Fieldset>
       {resource!=='categories'&&<Fieldset title={t('Media','الوسائط')}>
         {media('image',t('Cover image','صورة الغلاف'),resource,'image')}
-        {resource==='songs'&&media('audio',t('MP3 audio','ملف MP3'),'audio','audio')}
+        {resource==='songs'&&<>
+          <MediaField title={t('MP3 audio','ملف MP3')} value={uploaded?audio:''} bucket="audio" kind="audio"
+            busy={delta=>setUploads(n=>n+delta)} change={v=>set('audio',v)}
+            removeLabel={t('Unlink MP3 from track','افصل ملف MP3 عن التراك')}/>
+          <label className="wide">{t('Direct HTTPS MP3 URL','رابط MP3 مباشر (HTTPS)')}
+            <input type="url" dir="ltr" value={uploaded?'':audio} onChange={e=>set('audio',e.target.value.trim())}/></label>
+          {item?.audio?.startsWith('/uploads/audio/')&&<div className="wide">
+            <Confirm title={t('Delete uploaded MP3','حذف ملف MP3 المرفوع')} disabled={busy||uploads>0||audio!==item.audio}
+              action={async()=>{await write(path+'/audio'+params({expected:item.audio}),'DELETE');set('audio','');await query.invalidateQueries();}}>
+              {t('The MP3 will be deleted from storage. The track and its platform links will stay.',
+                'ملف MP3 هيتحذف من التخزين. التراك وروابط المنصات هيفضلوا موجودين.')}
+            </Confirm>
+          </div>}
+        </>}
         {resource==='gallery'&&<><label className="wide">{t('Video URL','رابط الفيديو')}<input type="url" dir="ltr" value={text(data.video).startsWith('/')?'':text(data.video)}
           onChange={e=>set('video',e.target.value)}/></label>{media('video',t('MP4 video','ملف MP4'),'gallery','video')}</>}
       </Fieldset>}
       {resource==='songs'&&<><Fieldset title={t('Lyrics','الكلمات')}>{pair('lyrics','Lyrics','الكلمات','textarea').map(input)}</Fieldset>
-        <Fieldset title={t('Streaming platforms','منصات الاستماع')}><PlatformFields value={links} change={v=>set('links',v)}/></Fieldset></>}
+        <Fieldset title={t('Streaming platforms','منصات الاستماع')}><PlatformFields song value={links} change={v=>set('links',v)}/></Fieldset></>}
       {resource==='albums'&&<>
         <Fieldset title={l('groups')}>
           {groups.data?.length?groups.data.map(group=><Toggle key={group.id} title={t(group.nameEn,group.nameAr)}
@@ -109,8 +129,20 @@ function Editor({resource,item}:{resource:Resource;item?:Entry}) {
       <div className="actions"><button className="button dark" disabled={busy||uploads>0}>{busy?t('Saving…','جارٍ الحفظ…'):
         data.published?t('Save published entry','احفظ العنصر المنشور'):t('Save draft','احفظ المسودة')}</button>
         <Link className="button outline" to={'/ADMIN/'+resource}>{t('Back to list','العودة إلى القائمة')}</Link>
-        {item&&<Confirm title={t('Delete entry','حذف العنصر')} action={async()=>{await write(path,'DELETE');void query.invalidateQueries();navigate('/ADMIN/'+resource);}}>
-          {t('This entry will be removed permanently.','سيُحذف هذا العنصر نهائياً.')}</Confirm>}</div>
+        {item&&<Confirm title={resource==='songs'?t('Delete track permanently','حذف التراك نهائيًا'):
+          resource==='albums'?t('Delete album','حذف الألبوم'):t('Delete entry','حذف العنصر')}
+          disabled={busy||uploads>0||(resource==='albums'&&(!impact.data||impact.isFetching||impact.isError))}
+          action={async()=>{
+            await write(path+(resource==='albums'?params(impact.data??{}):''),'DELETE');
+            void query.invalidateQueries();navigate('/ADMIN/'+resource);
+          }}>
+          {resource==='albums'&&impact.data?t(
+            `${impact.data.tracks} tracks will become unassigned. ${impact.data.groups} choir assignments and ${impact.data.links} album links will be removed. Audio files and tracks will stay.`,
+            `هيتفصل ${impact.data.tracks} تراك عن الألبوم، وهيتشال ارتباطه بـ ${impact.data.groups} فرق و${impact.data.links} روابط للألبوم. التراكات والملفات هتفضل موجودة.`):
+            resource==='songs'?t('The track and its platform links will be deleted. The uploaded audio file will stay.',
+              'التراك وروابطه هيتحذفوا نهائيًا. الملف الصوتي المرفوع هيفضل في التخزين.'):
+              t('This entry will be removed permanently.','سيُحذف هذا العنصر نهائياً.')}</Confirm>}</div>
+      {impact.isError&&<Feedback error={impact.error} onRetry={()=>impact.refetch()}/>}
     </form>{resource==='albums'&&item&&<AlbumOrder id={item.id}/>}</>;
 }
 function AlbumOrder({id}:{id:number}) {
