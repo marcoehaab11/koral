@@ -35,7 +35,7 @@ test('studio publishes an album and recording, protecting drafts and streaming b
   await page.goto('/ADMIN/albums/new');
   await page.getByLabel('Title (English)').fill(base.titleEn);
   await page.getByLabel('Title (Arabic)').fill(base.titleAr);
-  await page.getByLabel('URL slug').fill('night-rehearsal');
+  await expect(page.getByLabel('URL slug')).toHaveCount(0);
   await page.getByLabel('Cover image',{exact:true}).setInputFiles({name:'album.webp',mimeType:'image/webp',buffer:artwork});
   await expect(page.getByRole('img',{name:'Cover image'})).toBeVisible();
   await page.getByRole('button',{name:'Save draft'}).click();
@@ -43,6 +43,12 @@ test('studio publishes an album and recording, protecting drafts and streaming b
   const albumId=Number(page.url().split('/').at(-1));
   const albumPath='admin/albums/'+albumId;
   const album=await (await api.get('/api/'+albumPath)).json();
+  expect(album.slug).toBe('night-rehearsal');
+  const duplicate=await mutate(api,'admin/albums','POST',{...base,titleEn:'Night Réhearsal!'});
+  expect(duplicate.status()).toBe(201);
+  const second=await duplicate.json();
+  expect(second.slug).toBe('night-rehearsal-2');
+  expect((await mutate(api,'admin/albums/'+second.id,'DELETE')).status()).toBe(204);
   expect((await anonymous.get('/api/albums/night-rehearsal')).status()).toBe(404);
   expect((await anonymous.get(album.image)).status()).toBe(404);
 
@@ -75,7 +81,9 @@ test('studio publishes an album and recording, protecting drafts and streaming b
   await page.getByRole('button',{name:'Save published entry'}).click();
   await expect(page.getByRole('status').getByText('Changes saved.')).toBeVisible();
   expect((await (await anonymous.get('/api/songs/evening-tone')).json()).albumId).toBeNull();
-  await expect(await mutate(api,albumPath,'PUT',{...album,published:true,featured:true})).toBeOK();
+  const updatedAlbum=await mutate(api,albumPath,'PUT',{...album,slug:undefined,titleEn:'Renamed rehearsal',published:true,featured:true});
+  await expect(updatedAlbum).toBeOK();
+  expect((await updatedAlbum.json()).slug).toBe('night-rehearsal');
   expect((await mutate(api,albumPath+'/tracks/'+songId,'DELETE')).status()).toBe(204);
   expect((await (await anonymous.get('/api/songs/evening-tone')).json()).albumId).toBeNull();
   expect((await mutate(api,albumPath+'/tracks/'+songId,'PUT')).status()).toBe(204);

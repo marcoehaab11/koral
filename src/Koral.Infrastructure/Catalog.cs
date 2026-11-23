@@ -1,4 +1,7 @@
+using System.Globalization;
+using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using Koral.Application;
 using Koral.Domain;
 using Microsoft.EntityFrameworkCore;
@@ -127,6 +130,22 @@ public sealed class Catalog(KoralDb db)
         var name = parts[3];
         return await db.Media.AnyAsync(x => x.Bucket == parts[2] && x.Name == name && x.ContentType.StartsWith(kind));
     }
+    private async Task<string> GenerateAlbumSlug(string title)
+    {
+        var normalized = string.Concat(title.Normalize(NormalizationForm.FormD)
+            .Where(character => char.GetUnicodeCategory(character) != UnicodeCategory.NonSpacingMark));
+        var stem = Regex.Replace(normalized.ToLowerInvariant(), "[^a-z0-9]+", "-").Trim('-');
+        if (stem.Length > 150) stem = stem[..150].TrimEnd('-');
+        if (stem == "") stem = "album";
+
+        var prefix = stem + "-";
+        var occupied = (await db.Albums.Where(album => album.Slug == stem || album.Slug.StartsWith(prefix))
+            .Select(album => album.Slug).ToListAsync()).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var candidate = stem;
+        for (var suffix = 2; occupied.Contains(candidate); suffix++)
+            candidate = prefix + suffix.ToString(CultureInfo.InvariantCulture);
+        return candidate;
+    }
     public async Task<(Content? Row, string? Error, bool Missing)> Save(string resource, int? id, Content input, string actor)
     {
         Entry? entry = id.HasValue ? await Query(resource, true).FirstOrDefaultAsync(x => x.Id == id) : resource switch
@@ -139,7 +158,11 @@ public sealed class Catalog(KoralDb db)
         switch (entry)
         {
             case Album a:
-                if (await db.Albums.AnyAsync(x => x.Id != id && x.Slug == input.Slug)) return (null, "slug", false);
+                var slug = input.Slug;
+                if (string.IsNullOrWhiteSpace(slug))
+                    slug = id.HasValue ? a.Slug : await GenerateAlbumSlug(input.TitleEn);
+                else if (await db.Albums.AnyAsync(x => x.Id != id && x.Slug == slug))
+                    return (null, "slug", false);
                 if (input.GroupIds is not null)
                 {
                     var groupIds = input.GroupIds.Distinct().ToArray();
@@ -153,7 +176,7 @@ public sealed class Catalog(KoralDb db)
                     foreach (var link in input.Links) a.Links.Add(new AlbumPlatformLink
                         { Platform = link.PlatformName.Trim(), Url = link.Url, Label = link.Label, Sort = link.Sort });
                 }
-                (a.Slug, a.Date) = (input.Slug, input.Date);
+                (a.Slug, a.Date) = (slug, input.Date);
                 break;
             case Song s:
                 if (await db.Songs.AnyAsync(x => x.Id != id && x.Slug == input.Slug)) return (null, "slug", false);

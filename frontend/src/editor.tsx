@@ -13,7 +13,7 @@ const initial:Partial<Entry>={titleEn:'',titleAr:'',descriptionEn:'',description
   composer:'',lyricist:'',arranger:'',conductor:'',slug:'',positionEn:'',positionAr:'',location:'',registration:'',video:'',
   links:[],groupIds:[],published:false,featured:false,sort:0,status:'scheduled'};
 const fields:Record<Resource,Field[]> = {
-  albums:[field('slug','URL slug','رابط الصفحة','slug',true),field('date','Release date','تاريخ الإصدار','date')],
+  albums:[field('date','Release date','تاريخ الإصدار','date')],
   songs:[field('slug','URL slug','رابط الصفحة','slug',true),field('date','Release date','تاريخ الإصدار','date'),
     field('duration','Duration in seconds','المدة بالثواني','number'),field('composer','Composer','الملحن'),field('lyricist','Lyricist','كاتب الكلمات'),
     field('arranger','Arranger','الموزع'),field('conductor','Conductor','قائد الكورال')],
@@ -65,7 +65,7 @@ function Editor({resource,item}:{resource:Resource;item?:Entry}) {
     }
     setBusy(true);
     try{
-      const row=await write<Entry>(path,item?'PUT':'POST',{...data,sort:data.sort??0});
+      const row=await write<Entry>(path,item?'PUT':'POST',{...data,slug:resource==='albums'?undefined:data.slug,sort:data.sort??0});
       query.setQueryData(['admin/'+resource+'/'+row.id],row);
       void query.invalidateQueries();
       setSaved(true);

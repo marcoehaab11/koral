@@ -48,7 +48,8 @@ public sealed class ContentValidator : AbstractValidator<Content>
         RuleFor(x => x.Image).Must(InputRules.Media).WithMessage("Select an uploaded image.");
         RuleFor(x => x.Sort).InclusiveBetween(0, 100000);
         if (resource is "albums" or "songs")
-            RuleFor(x => x.Slug).NotEmpty().MaximumLength(160).Matches(@"^[a-z0-9]+(-[a-z0-9]+)*$");
+            RuleFor(x => x.Slug).NotEmpty().MaximumLength(160).Matches(@"^[a-z0-9]+(-[a-z0-9]+)*$")
+                .When(x => resource == "songs" || !string.IsNullOrWhiteSpace(x.Slug));
         if (resource == "albums")
         {
             RuleFor(x => x.GroupIds).Must(ids => ids is null || (ids.Count <= 50 && ids.All(id => id > 0)));
