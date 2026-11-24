@@ -9,6 +9,7 @@ import { Brand, Feedback, Language } from './public';
 import { EditorRoute, ProfileRoute, Staff, FormError } from './editor';
 import { ApplicationRoute, ApplicationsList } from './studio-applications';
 import { ChoirGroups } from './studio-groups';
+import { RegistrationEditor } from './studio-registration';
 
 const resources: Resource[]=['albums','songs','gallery','categories','members','events'];
 function Auth({state,change=false}:{state?:Session;change?:boolean}) {
@@ -79,6 +80,7 @@ export default function Studio() {
     <nav aria-label={t('Studio navigation','قائمة الاستوديو')}>
       <NavLink end to="/ADMIN" onClick={()=>setNav(false)}>{l('dashboard')}</NavLink>
       {owner&&<NavLink to="/ADMIN/applications" onClick={()=>setNav(false)}>{l('applications')}</NavLink>}
+      {owner&&<NavLink to="/ADMIN/registration-form" onClick={()=>setNav(false)}>{t('Registration form','استمارة الانضمام')}</NavLink>}
       {owner&&<NavLink to="/ADMIN/choir-groups" onClick={()=>setNav(false)}>{l('groups')}</NavLink>}
       {resources.map(key=><NavLink key={key} to={'/ADMIN/'+key} onClick={()=>setNav(false)}>{l(key)}</NavLink>)}
       {owner&&(['choir','settings','users'] as const).map(key=><NavLink key={key} to={'/ADMIN/'+key} onClick={()=>setNav(false)}>{l(key)}</NavLink>)}
@@ -93,6 +95,7 @@ export default function Studio() {
           <Route index element={<AdminList key={resource} resource={resource}/>}/><Route path=":id" element={<EditorRoute key={resource} resource={resource}/>}/>
         </Route>)}
         {owner&&<><Route path="choir" element={<ProfileRoute kind="choir"/>}/><Route path="settings" element={<ProfileRoute kind="settings"/>}/>
+          <Route path="registration-form" element={<RegistrationEditor/>}/>
           <Route path="users" element={<Staff/>}/>
           <Route path="choir-groups" element={<ChoirGroups/>}/>
           <Route path="applications" element={<ApplicationsList/>}/><Route path="applications/:id" element={<ApplicationRoute/>}/></>}

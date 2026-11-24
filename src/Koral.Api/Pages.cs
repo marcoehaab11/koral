@@ -70,6 +70,7 @@ public static class Pages
             var title = string.IsNullOrWhiteSpace(pageTitle) ? site : pageTitle + " | " + site;
             var description = Choose(item is null ? "" : arabic ? item.DescriptionAr : item.DescriptionEn,
                 Choose(arabic ? settings.DescriptionAr : settings.DescriptionEn, arabic ? profile.IntroAr : profile.IntroEn));
+            if (resource == "join") description = arabic ? "الاشتراك في كورال يوسف الصديق" : "Registration for Youssef El-Seddik Choir";
             var origin = Origin(http, config, env);
             var url = origin + path;
             var image = Choose(item?.Image, profile.Cover);

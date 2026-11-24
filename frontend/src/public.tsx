@@ -174,6 +174,7 @@ function Home() {
           <span lang={t('ar','en')}>{t(profile.nameAr,profile.nameEn)}</span></div>
         <h1>{t(profile.nameEn,profile.nameAr)}</h1><p>{intro}</p>
         <div className="actions"><Link className="button primary" to="/albums"><Headphones size={18}/>{t('Explore our music','اكتشف موسيقانا')}</Link>
+          {settings.homeJoin&&<Link className="button ghost" to="/join">{l('join')}</Link>}
           <Link className="button ghost" to="/about">{t('About the choir','عن الكورال')}</Link></div>
       </motion.div>
       <div className="hero-media"><Photo cover={profile.cover} mobile={profile.coverMobile} hero

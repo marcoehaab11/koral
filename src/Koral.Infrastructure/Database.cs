@@ -24,6 +24,7 @@ public sealed class KoralDb(DbContextOptions<KoralDb> options) : IdentityDbConte
     public DbSet<MediaAsset> Media => Set<MediaAsset>();
     public DbSet<ChoirApplication> ChoirApplications => Set<ChoirApplication>();
     public DbSet<ChoirGroup> ChoirGroups => Set<ChoirGroup>();
+    public DbSet<RegistrationForm> RegistrationForms => Set<RegistrationForm>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -34,7 +35,8 @@ public sealed class KoralDb(DbContextOptions<KoralDb> options) : IdentityDbConte
         application.Property(x => x.NormalizedEmail).HasMaxLength(254).UseCollation("Latin1_General_100_BIN2");
         application.Property(x => x.Phone).HasMaxLength(30);
         application.Property(x => x.Voice).HasMaxLength(16);
-        application.Property(x => x.Status).HasMaxLength(16);
+        application.Property(x => x.Status).HasMaxLength(40);
+        application.Property(x => x.FormAnswers).HasDefaultValue("[]");
         application.Property(x => x.Experience).HasMaxLength(1500);
         application.Property(x => x.Notes).HasMaxLength(4000);
         application.Property(x => x.Revision).IsConcurrencyToken();
@@ -43,6 +45,8 @@ public sealed class KoralDb(DbContextOptions<KoralDb> options) : IdentityDbConte
         application.HasIndex(x => new { x.NormalizedEmail, x.GroupId, x.FormerGroupId }).IsUnique().HasFilter(null);
         application.HasOne(x => x.Group).WithMany().OnDelete(DeleteBehavior.Restrict);
         application.HasIndex(x => new { x.Status, x.CreatedAt });
+        b.Entity<RegistrationForm>().Property(x => x.Id).ValueGeneratedNever();
+        b.Entity<RegistrationForm>().Property(x => x.Revision).IsConcurrencyToken();
         b.Entity<ChoirGroup>().Property(x => x.NameEn).HasMaxLength(120);
         b.Entity<ChoirGroup>().Property(x => x.NameAr).HasMaxLength(120);
         b.Entity<ChoirGroup>().HasIndex(x => x.CatalogSlot).IsUnique();
@@ -91,6 +95,8 @@ public sealed class LocalMediaStorage : Koral.Application.IMediaStorage
     {
         var allowed = bucket == "auditions"
             ? System.Text.RegularExpressions.Regex.IsMatch(name, @"^[a-f0-9]{32}\.(webm|ogg|m4a|wav|mp3)$")
+            : bucket == "applicant-photos"
+            ? System.Text.RegularExpressions.Regex.IsMatch(name, @"^[a-f0-9]{32}\.(jpg|png|webp)$")
             : bucket is "choir" or "albums" or "songs" or "gallery" or "members" or "audio" or "events"
                 && System.Text.RegularExpressions.Regex.IsMatch(name, @"^[a-f0-9]{32}\.(jpg|png|webp|mp3|mp4)$");
         if (!allowed)

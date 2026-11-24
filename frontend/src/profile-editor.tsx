@@ -24,7 +24,7 @@ function ProfileForm({kind,value}:{kind:'choir'|'settings';value:Profile|Setting
     ['english','English','الإنجليزية'],['arabic','Arabic','العربية'],['members','Members page','صفحة الأعضاء'],['events','Events page','صفحة الفعاليات'],
     ['homeAlbums','Featured albums','الألبومات المختارة'],['homeSongs','Latest songs','أحدث الأغاني'],['homeAbout','About preview','نبذة عن الكورال'],
     ['homeGallery','Gallery preview','مختارات المعرض'],['homeEvents','Events preview','الفعاليات المقبلة'],
-    ['homeFeaturedSongs','Featured songs','الأغاني المختارة'],
+    ['homeFeaturedSongs','Featured songs','الأغاني المختارة'],['homeJoin','Join button on the homepage','زر الانضمام في الصفحة الرئيسية'],
   ];
   return <><h1>{l(kind)}</h1><form className="editor" onSubmit={async e=>{
     e.preventDefault();setBusy(true);setError(undefined);setSaved(false);

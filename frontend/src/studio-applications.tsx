@@ -7,26 +7,33 @@ import { AuditionPlayer } from './audition';
 import { Confirm, FormError } from './editor-fields';
 import { Feedback } from './public';
 import { statusLabels, voiceLabels, type Applicant, type ApplicationDetail, type ApplicationStatus } from './recruitment';
+import { registrationEndpoint, type RegistrationSchema } from './registration';
 
 const endpoint='admin/applications';
 const isList=(key:unknown)=>key===endpoint||String(key).startsWith(endpoint+'?');
+const defaultStatuses=Object.entries(statusLabels).map(([id,[labelEn,labelAr]])=>({id,labelEn,labelAr}));
 
 function StatusSelect({value,change,filter=false}:{value:string;change:(value:ApplicationStatus|'')=>void;filter?:boolean}) {
   const {t}=useLocale();
+  const statuses=useApi<RegistrationSchema>(registrationEndpoint).data?.statuses??defaultStatuses;
   return <label>{filter?t('Filter by status','فلترة حسب الحالة'):t('Application status','حالة الطلب')}
     <select value={value} onChange={e=>change(e.target.value as ApplicationStatus|'')}>
       {filter&&<option value="">{t('All statuses','كل الحالات')}</option>}
-      {Object.entries(statusLabels).map(([key,label])=><option key={key} value={key}>{t(label[0],label[1])}</option>)}
+      {value&&!statuses.some(x=>x.id===value)&&<option value={value}>{value}</option>}
+      {statuses.map(x=><option key={x.id} value={x.id}>{t(x.labelEn,x.labelAr)}</option>)}
     </select></label>;
 }
 
 export function ApplicationsList() {
-  const {l,t,date}=useLocale();
+  const {l,t,date,lang}=useLocale();
   const [search,setSearch]=useState('');
   const [query,setQuery]=useState('');
   const [status,setStatus]=useState<ApplicationStatus|''>('');
   const [group,setGroup]=useState('');
   const [page,setPage]=useState(1);
+  const [from,setFrom]=useState('');
+  const [to,setTo]=useState('');
+  const statuses=useApi<RegistrationSchema>(registrationEndpoint).data?.statuses??defaultStatuses;
   const groups=useApi<ChoirGroup[]>('choir-groups');
   const recruitmentGroups=groups.data?.filter(row=>row.recruitmentEnabled!==false)??[];
   const result=useApi<Page<Applicant>>(endpoint+params({q:query,status,page,group}));
@@ -44,14 +51,23 @@ export function ApplicationsList() {
       </select></label>}
       <button className="button outline"><Search size={16}/>{l('search')}</button>
     </form>
+    <div className="filters recruitment-filters">
+      <label>{t('Export from (optional)','التصدير من تاريخ (اختياري)')}
+        <input type="date" value={from} max={to||undefined} onChange={e=>setFrom(e.target.value)}/></label>
+      <label>{t('Export to (optional)','التصدير إلى تاريخ (اختياري)')}
+        <input type="date" value={to} min={from||undefined} onChange={e=>setTo(e.target.value)}/></label>
+      {from&&to&&from>to?<p role="alert">{t('Choose a valid date range.','اختار فترة تصدير صحيحة.')}</p>:
+        <a className="button outline" href={'/api/'+endpoint+'/export'+params({from,to,lang})} download>
+          {t('Export to Excel','صدّر إلى Excel')}</a>}
+    </div>
     {!data?<Feedback pending={result.isPending} error={result.error} onRetry={()=>result.refetch()}/>:
       <><p className="metadata" role="status">{t('Matching applications','عدد الطلبات المطابقة')} · {data.total}</p>
-        {data.items.length?<ul className="applicant-list">{data.items.map(item=><li key={item.id}>
-          <Link to={String(item.id)}><strong dir="auto">{item.name}</strong><span className="metadata" dir="ltr">{item.email}</span>
+        {data.items.length?<ul className="applicant-list">{data.items.map(item=>{const option=statuses.find(x=>x.id===item.status);return <li key={item.id}>
+          <Link to={String(item.id)}><strong dir="auto">{item.name||t('Application','طلب')+' #'+item.id}</strong><span className="metadata" dir="ltr">{item.email||item.phone}</span>
             {(item.groupEn||item.groupAr)&&<span className="metadata">{t(item.groupEn,item.groupAr)}</span>}</Link>
-          <span className={'status '+(item.status==='accepted'?'published':'')}>{t(statusLabels[item.status][0],statusLabels[item.status][1])}</span>
+          <span className={'status '+(item.status==='accepted'?'published':'')}>{option?t(option.labelEn,option.labelAr):item.status}</span>
           <time className="metadata" dateTime={item.createdAt}>{date(item.createdAt)}</time>
-        </li>)}</ul>:<Feedback empty={query||status||group?t('No applications match these filters.','مفيش طلبات مطابقة للبحث.'):
+        </li>;})}</ul>:<Feedback empty={query||status||group?t('No applications match these filters.','مفيش طلبات مطابقة للبحث.'):
           t('New join requests will appear here.','طلبات الانضمام الجديدة هتظهر هنا.')}/>}
         {(page>1||pages>1)&&<nav className="pager" aria-label={t('Application pages','صفحات الطلبات')}>
           <button className="button outline" disabled={page<=1} onClick={()=>setPage(page-1)}>{t('Previous','السابق')}</button>
@@ -84,18 +100,24 @@ function ApplicationEditor({entry,reload}:{entry:ApplicationDetail;reload:()=>Pr
     setStatus(data.applicant.status);setNotes(data.notes);setRevision(data.revision);
   }
   return <div className="application-editor"><Link className="text-link" to="/ADMIN/applications">{l('applications')}</Link>
-    <h1 dir="auto">{applicant.name}</h1>
+    <h1 dir="auto">{applicant.name||t('Application','طلب')+' #'+applicant.id}</h1>
     <section className="panel application-info">
       <h2>{t('Application details','تفاصيل الطلب')}</h2>
       <dl>
-        <div><dt>{t('Email','البريد الإلكتروني')}</dt><dd><a dir="ltr" href={'mailto:'+encodeURIComponent(applicant.email)}><Mail size={16}/>{applicant.email}</a></dd></div>
+        {applicant.email&&<div><dt>{t('Email','البريد الإلكتروني')}</dt><dd><a dir="ltr" href={'mailto:'+encodeURIComponent(applicant.email)}><Mail size={16}/>{applicant.email}</a></dd></div>}
         {applicant.phone&&<div><dt>{t('Phone','رقم التليفون')}</dt><dd><a dir="ltr" href={'tel:'+applicant.phone.replace(/[ ()]/g,'')}><Phone size={16}/>{applicant.phone}</a></dd></div>}
-        <div><dt>{t('Voice part','الطبقة الصوتية')}</dt><dd>{t(voiceLabels[applicant.voice][0],voiceLabels[applicant.voice][1])}</dd></div>
+        {!entry.answers.length&&<div><dt>{t('Voice part','الطبقة الصوتية')}</dt><dd>{t(voiceLabels[applicant.voice][0],voiceLabels[applicant.voice][1])}</dd></div>}
         {(applicant.groupEn||applicant.groupAr)&&<div><dt>{t('Choir group','فرقة الكورال')}</dt><dd>{t(applicant.groupEn,applicant.groupAr)}</dd></div>}
         <div><dt>{t('Submitted','تاريخ التقديم')}</dt><dd>{date(applicant.createdAt)}</dd></div>
+        {entry.answers.filter(x=>x.kind!=='photo'&&x.kind!=='recording').map(answer=>
+          <div key={answer.id}><dt>{t(answer.labelEn,answer.labelAr)}</dt><dd dir="auto">{answer.value}</dd></div>)}
       </dl>
       {entry.experience&&<div><h2>{t('Singing experience','الخبرة في الغنا')}</h2><p className="prose" dir="auto">{entry.experience}</p></div>}
     </section>
+    {entry.photoUrl&&<section className="panel application-info">
+      <h2>{t('Personal photo','الصورة الشخصية')}</h2>
+      <a className="text-link" href={entry.photoUrl} target="_blank" rel="noopener noreferrer">{t('Open photo','افتح الصورة')}</a>
+    </section>}
     {entry.recordingUrl&&<section className="panel application-info">
       <h2>{t('Voice recording','التسجيل الصوتي')}</h2>
       {entry.backingTitle&&<p>{entry.backingTitle}</p>}

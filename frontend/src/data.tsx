@@ -24,7 +24,7 @@ export type Profile = {
 export type Settings = {
   titleEn: string; titleAr: string; descriptionEn: string; descriptionAr: string; favicon: string; footerEn: string; footerAr: string;
   defaultLanguage: Lang; members: boolean; events: boolean; homeAlbums: boolean; homeSongs: boolean;
-  homeAbout: boolean; homeGallery: boolean; homeEvents: boolean; english: boolean; arabic: boolean; homeFeaturedSongs:boolean;
+  homeAbout: boolean; homeGallery: boolean; homeEvents: boolean; english: boolean; arabic: boolean; homeFeaturedSongs:boolean; homeJoin:boolean;
 };
 export type Page<T> = { items: T[]; total: number; pageNumber: number; pageSize: number };
 export type Session = { email: string; mustChangePassword: boolean; roles: string[] };
@@ -43,7 +43,7 @@ const emptyProfile: Profile = {
 };
 const emptySettings: Settings = {
   titleEn:'',titleAr:'',descriptionEn:'',descriptionAr:'',favicon:'',footerEn:'',footerAr:'',defaultLanguage:'en',
-  members:true,events:true,homeAlbums:true,homeSongs:true,homeAbout:true,homeGallery:true,homeEvents:true,english:true,arabic:true,homeFeaturedSongs:false,
+  members:true,events:true,homeAlbums:true,homeSongs:true,homeAbout:true,homeGallery:true,homeEvents:true,english:true,arabic:true,homeFeaturedSongs:false,homeJoin:true,
 };
 
 export class ApiError extends Error {

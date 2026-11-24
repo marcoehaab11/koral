@@ -46,8 +46,8 @@ export function AuditionPlayer({voice,backing,beforePlay}:{voice:string;backing?
   </div>;
 }
 
-export function Audition({backing,title,required,value,change,busyChanged,stopSitePlayback}:{
-  backing:string;title:string;required:boolean;value:Take|null;change:(value:Take|null)=>void;busyChanged:(busy:boolean)=>void;
+export function Audition({backing,title,label,required,value,change,busyChanged,stopSitePlayback}:{
+  backing:string;title:string;label?:string;required:boolean;value:Take|null;change:(value:Take|null)=>void;busyChanged:(busy:boolean)=>void;
   stopSitePlayback:()=>void;
 }) {
   const {t}=useLocale();
@@ -199,7 +199,7 @@ export function Audition({backing,title,required,value,change,busyChanged,stopSi
 
   const canRecord=!!navigator.mediaDevices?.getUserMedia&&typeof MediaRecorder!=='undefined'&&(!backing||typeof AudioContext!=='undefined');
   return <fieldset className="join-audition wide">
-    <legend>{required?t('Voice recording (required)','التسجيل الصوتي (مطلوب)'):t('Voice recording (optional)','التسجيل الصوتي (اختياري)')}</legend>
+    <legend>{label??t('Voice recording','التسجيل الصوتي')} {required?t('(required)','(مطلوب)'):t('(optional)','(اختياري)')}</legend>
     {backing&&<>
       <span>{title}</span>
       <p className="metadata">{t('Use headphones so the recording captures your voice clearly.','استخدم سماعات عشان التسجيل يلقط صوتك بوضوح.')}</p>

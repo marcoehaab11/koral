@@ -155,6 +155,11 @@ textarea{resize:vertical}
 .join-audition{min-inline-size:0;display:grid;gap:12px;border:1px solid var(--line);padding:16px}
 .join-audition audio[controls],.audition-player audio[controls]{display:block;inline-size:100%;max-inline-size:380px}
 .audition-player{display:grid;gap:8px}
+.registration-date{border:0;padding:0;margin:0;min-inline-size:0}
+.registration-date-fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.registration-editor{display:grid;gap:16px}
+.registration-editor .panel{padding:16px;min-inline-size:0}
+.registration-editor .actions{margin-block-start:10px}
 .platform:hover{text-decoration:underline}
 .tracklist{display:grid}
 .track{display:grid;grid-template-columns:54px minmax(0,1fr) 136px 92px;align-items:center;gap:10px 15px;padding:10px 0;border-block-end:1px solid var(--line)}

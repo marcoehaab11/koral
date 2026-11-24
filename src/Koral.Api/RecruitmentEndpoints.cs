@@ -2,7 +2,6 @@ using Koral.Application;
 using Koral.Domain;
 using Koral.Infrastructure;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
 
@@ -11,44 +10,54 @@ namespace Koral.Api;
 public static class RecruitmentEndpoints
 {
     private const int MaxRecordingBytes = 8 * 1024 * 1024;
+    private const int MaxPhotoBytes = 5 * 1024 * 1024;
     private const string Recordings = "auditions";
+    private const string Photos = "applicant-photos";
     private static readonly BackingTrack DefaultBacking = new("/media/audition-backing-v1.mp3", "Audition backing track");
     private sealed record BackingTrack(string Url, string Title);
 
     public static void MapRecruitment(this WebApplication app)
     {
-        app.MapGet("/api/join/backing", () => DefaultBacking);
+        app.MapGet("/api/join/backing", Backing);
         app.MapGroup("/api/join").WithCsrf(false).MapPost("/", Submit).RequireRateLimiting("recruitment")
-            .WithMetadata(new RequestSizeLimitAttribute(MaxRecordingBytes + 32_768));
+            .WithMetadata(new RequestSizeLimitAttribute(MaxRecordingBytes + MaxPhotoBytes + 65_536));
 
         var admin = app.MapGroup("/api/admin/applications").RequireAuthorization("Owner").WithCsrf();
         admin.MapGet("/", List);
         admin.MapGet("/{id:int}", Detail);
         admin.MapGet("/{id:int}/recording", Recording);
+        admin.MapGet("/{id:int}/photo", Photo);
+        admin.MapGet("/export", ApplicationExport.Download);
         admin.MapPut("/{id:int}", Update);
         admin.MapDelete("/{id:int}", Delete);
     }
 
+    private static async Task<BackingTrack> Backing(KoralDb db, CancellationToken ct) =>
+        await db.ChoirGroups.Where(x => x.Accepting && x.RecruitmentEnabled && x.BackingAudio != "")
+            .OrderBy(x => x.Id).Select(x => new BackingTrack(x.BackingAudio, x.BackingTitle)).FirstOrDefaultAsync(ct)
+        ?? DefaultBacking;
+
     private static async Task<IResult> Submit(HttpRequest request, KoralDb db, IMediaStorage storage, CancellationToken ct)
     {
-        JoinInput? input;
-        IFormFile? file = null;
+        RegistrationInput? input;
+        IFormFile? file = null, photo = null;
         try
         {
             if (request.HasFormContentType)
             {
                 var form = await request.ReadFormAsync(ct);
                 var payload = form["application"].ToString();
-                if (payload.Length > 16_384 || form.Files.Count > 1) return Results.BadRequest();
-                input = JsonSerializer.Deserialize<JoinInput>(payload, JsonSerializerOptions.Web);
+                if (payload.Length > 49_152 || form.Files.Count > 2) return Results.BadRequest();
+                input = JsonSerializer.Deserialize<RegistrationInput>(payload, Registration.Json);
                 file = form.Files.GetFile("recording");
-                if (form.Files.Count != (file is null ? 0 : 1)) return Results.BadRequest();
+                photo = form.Files.GetFile("photo");
+                if (form.Files.Count != (file is null ? 0 : 1) + (photo is null ? 0 : 1)) return Results.BadRequest();
             }
             else if (request.HasJsonContentType())
             {
                 var size = request.HttpContext.Features.Get<Microsoft.AspNetCore.Http.Features.IHttpMaxRequestBodySizeFeature>();
-                if (size is { IsReadOnly: false }) size.MaxRequestBodySize = 16_384;
-                input = await request.ReadFromJsonAsync<JoinInput>(ct);
+                if (size is { IsReadOnly: false }) size.MaxRequestBodySize = 49_152;
+                input = await request.ReadFromJsonAsync<RegistrationInput>(ct);
             }
             else return Results.StatusCode(415);
         }
@@ -57,67 +66,105 @@ public static class RecruitmentEndpoints
         catch (BadHttpRequestException e) { return Results.StatusCode(e.StatusCode); }
         if (input is null) return Results.BadRequest();
 
-        input = input with { Name = input.Name?.Trim() ?? "", Email = input.Email?.Trim() ?? "", Phone = input.Phone?.Trim() ?? "",
-            Experience = input.Experience?.Trim() ?? "" };
-        var validation = await Recruitment.Validate.ValidateAsync(input, ct);
-        if (!validation.IsValid)
-            return Results.ValidationProblem(validation.Errors.GroupBy(x => x.PropertyName)
-                .ToDictionary(x => System.Text.Json.JsonNamingPolicy.CamelCase.ConvertName(x.Key), x => x.Select(e => e.ErrorMessage).ToArray()));
-
-        var group = input.GroupId is int id
-            ? await db.ChoirGroups.AsNoTracking().SingleOrDefaultAsync(x => x.Id == id && x.RecruitmentEnabled && x.Accepting, ct) : null;
-        if (group is null && (input.GroupId.HasValue || await db.ChoirGroups.AnyAsync(x => x.RecruitmentEnabled, ct)))
-            return Results.ValidationProblem(new Dictionary<string, string[]> { ["groupId"] = ["Choose a choir group that is open for applications."] });
-        if (file is null && group?.RecordingRequired == true)
-            return Results.ValidationProblem(new Dictionary<string, string[]> { ["recording"] = ["Add a voice recording for this group."] });
-        var backing = group?.BackingAudio is { Length: > 0 } custom
-            ? new BackingTrack(custom, group.BackingTitle) : DefaultBacking;
-        if (input.RecordedWithBacking && (file is null || input.BackingAudio != backing.Url))
+        var schema = await RegistrationEndpoints.Schema(db, ct);
+        var fields = schema.Fields.Where(x => x.Visible).ToList();
+        if (input.Revision != schema.Revision || fields.Count == 0)
+            return Results.Problem("The registration form changed. Reload it and try again.", statusCode: 409);
+        var errors = new Dictionary<string, string[]>();
+        var answers = new List<RegistrationAnswer>();
+        if (!input.Consent) errors["consent"] = ["Consent is required."];
+        foreach (var field in fields)
+        {
+            if (field.Kind is "recording" or "photo")
+            {
+                if (field.Required && (field.Kind == "photo" ? photo : file) is null)
+                    errors[field.Id] = ["Attach the required file."];
+                continue;
+            }
+            var values = input.Answers?.GetValueOrDefault(field.Id)?.Select(x => x?.Trim() ?? "").ToArray();
+            if (!Registration.TryAnswer(field, values, input.Details, out var answer))
+                errors[field.Id] = ["Check this field and any required details."];
+            else if (answer != "") answers.Add(new(field.Id, field.LabelAr, field.LabelEn, field.Kind, answer));
+        }
+        if (errors.Count > 0) return Results.ValidationProblem(errors);
+        var photoField = fields.Find(x => x.Kind == "photo");
+        var recordingField = fields.Find(x => x.Kind == "recording");
+        if ((photo is not null && photoField is null) || (file is not null && recordingField is null)) return Results.BadRequest();
+        var backing = await Backing(db, ct);
+        if (!string.IsNullOrEmpty(input.BackingAudio) && (file is null || input.BackingAudio != backing.Url))
             return Results.Problem("The backing track has changed. Refresh and record again.", statusCode: 409);
-        var backingUrl = input.RecordedWithBacking ? backing.Url : group?.BackingAudio ?? "";
-        var backingTitle = input.RecordedWithBacking ? backing.Title : group?.BackingTitle ?? "";
+        var recordedWithBacking = file is not null && input.BackingAudio == backing.Url;
 
         var now = DateTimeOffset.UtcNow;
         var row = new ChoirApplication
         {
-            Name = input.Name, Email = input.Email, NormalizedEmail = input.Email.ToUpperInvariant(),
-            Phone = input.Phone, Voice = input.Voice, Experience = input.Experience,
-            GroupId = group?.Id, BackingAudio = file is null ? "" : backingUrl,
-            BackingTitle = file is null ? "" : backingTitle,
-            RecordedWithBacking = input.RecordedWithBacking,
-            RecordingMixed = input.RecordedWithBacking && input.RecordingMixed,
+            Name = string.Join(' ', answers.Where(x => x.Id is "first-name" or "second-name" or "third-name" or "last-name")
+                .OrderBy(x => Array.IndexOf(new[] { "first-name", "second-name", "third-name", "last-name" }, x.Id)).Select(x => x.Value)),
+            NormalizedEmail = "registration:" + Guid.NewGuid().ToString("N"),
+            Phone = answers.Find(x => x.Id == "whatsapp")?.Value ?? "",
+            BackingAudio = recordedWithBacking ? backing.Url : "",
+            BackingTitle = recordedWithBacking ? backing.Title : "",
+            RecordedWithBacking = recordedWithBacking,
+            RecordingMixed = recordedWithBacking && input.RecordingMixed,
             Revision = Guid.NewGuid(), CreatedAt = now, UpdatedAt = now
         };
-        if (file is not null)
+        if (row.Name.Length > 120) row.Name = row.Name[..120];
+        if (row.Phone.Length > 30) row.Phone = row.Phone[..30];
+        var recordingFormat = await Identify(file, MaxRecordingBytes, AudioFormat, ct);
+        var photoFormat = await Identify(photo, MaxPhotoBytes, ImageFormat, ct);
+        if (file is not null && recordingFormat is null || photo is not null && photoFormat is null)
+            return Results.Problem("Use a supported photo or recording within the size limit.", statusCode: 415);
+        try
         {
-            if (file.Length < 12 || file.Length > MaxRecordingBytes) return Results.StatusCode(413);
-            await using var stream = file.OpenReadStream();
-            var header = new byte[12];
-            await stream.ReadExactlyAsync(header, ct);
-            var format = AudioFormat(header);
-            if (format is null) return Results.StatusCode(415);
-            row.RecordingType = format.Value.Type;
-            row.RecordingName = Guid.NewGuid().ToString("N") + format.Value.Extension;
-            stream.Position = 0;
-            await storage.Write(Recordings, row.RecordingName, stream, ct);
-        }
-        db.ChoirApplications.Add(row);
-        try { await db.SaveChangesAsync(ct); }
-        catch (DbUpdateException error) when (error.InnerException is SqlException { Number: 2601 or 2627 })
-        {
-            if (row.RecordingName != "") storage.Remove(Recordings, row.RecordingName);
-        }
-        catch (DbUpdateException error) when (error.InnerException is SqlException { Number: 547 })
-        {
-            if (row.RecordingName != "") storage.Remove(Recordings, row.RecordingName);
-            return Results.Problem("This choir group changed. Choose an available group and try again.", statusCode: 409);
+            if (file is not null && recordingFormat is { } audio)
+            {
+                row.RecordingType = audio.Type;
+                row.RecordingName = await SaveAttachment(file, Recordings, audio.Extension, storage, ct);
+                answers.Add(new(recordingField!.Id, recordingField.LabelAr, recordingField.LabelEn, "recording", row.RecordingName));
+            }
+            if (photo is not null && photoFormat is { } image)
+            {
+                row.PhotoType = image.Type;
+                row.PhotoName = await SaveAttachment(photo, Photos, image.Extension, storage, ct);
+                answers.Add(new(photoField!.Id, photoField.LabelAr, photoField.LabelEn, "photo", row.PhotoName));
+            }
+            row.FormAnswers = JsonSerializer.Serialize(answers, Registration.Json);
+            db.ChoirApplications.Add(row);
+            await db.SaveChangesAsync(ct);
         }
         catch
         {
             if (row.RecordingName != "") storage.Remove(Recordings, row.RecordingName);
+            if (row.PhotoName != "") storage.Remove(Photos, row.PhotoName);
             throw;
         }
         return Results.NoContent();
+    }
+
+    private static async Task<string> SaveAttachment(IFormFile file, string bucket, string extension, IMediaStorage storage, CancellationToken ct)
+    {
+        var name = Guid.NewGuid().ToString("N") + extension;
+        await using var stream = file.OpenReadStream();
+        await storage.Write(bucket, name, stream, ct);
+        return name;
+    }
+
+    private delegate (string Extension, string Type)? DetectFormat(ReadOnlySpan<byte> header);
+    private static async Task<(string Extension, string Type)?> Identify(IFormFile? file, int limit, DetectFormat detect, CancellationToken ct)
+    {
+        if (file is null || file.Length < 12 || file.Length > limit) return null;
+        await using var stream = file.OpenReadStream();
+        var header = new byte[12];
+        await stream.ReadExactlyAsync(header, ct);
+        return detect(header);
+    }
+
+    private static (string Extension, string Type)? ImageFormat(ReadOnlySpan<byte> header)
+    {
+        if (header.StartsWith(new byte[] { 255, 216, 255 })) return (".jpg", "image/jpeg");
+        if (header.StartsWith(new byte[] { 137, 80, 78, 71, 13, 10, 26, 10 })) return (".png", "image/png");
+        if (header.StartsWith("RIFF"u8) && header[8..].SequenceEqual("WEBP"u8)) return (".webp", "image/webp");
+        return null;
     }
 
     private static (string Extension, string Type)? AudioFormat(ReadOnlySpan<byte> header)
@@ -140,16 +187,35 @@ public static class RecruitmentEndpoints
         return Results.File(stream, file.RecordingType, enableRangeProcessing: true);
     }
 
+    private static async Task<IResult> Photo(int id, KoralDb db, IMediaStorage storage, HttpContext http, CancellationToken ct)
+    {
+        var file = await db.ChoirApplications.AsNoTracking().Where(x => x.Id == id && x.PhotoName != "")
+            .Select(x => new { x.PhotoName, x.PhotoType }).SingleOrDefaultAsync(ct);
+        if (file is null || storage.Open(Photos, file.PhotoName) is not Stream stream) return Results.NotFound();
+        http.Response.Headers.CacheControl = "private, no-store";
+        return Results.File(stream, file.PhotoType);
+    }
+
     private static async Task<Page<ApplicationSummary>> List(KoralDb db, string? q, string? status, int? page, int? group, CancellationToken ct)
     {
         const int size = 20;
         var number = Math.Clamp(page ?? 1, 1, 1_000_000);
         var rows = db.ChoirApplications.AsNoTracking();
-        if (Recruitment.Statuses.Contains(status)) rows = rows.Where(x => x.Status == status);
+        if (!string.IsNullOrEmpty(status) && status.Length <= 40) rows = rows.Where(x => x.Status == status);
         if (group.HasValue) rows = group == 0 ? rows.Where(x => x.GroupId == null) : rows.Where(x => x.GroupId == group);
         var term = (q ?? "").Trim();
         if (term.Length > 120) term = term[..120];
-        if (term.Length > 0) rows = rows.Where(x => x.Name.Contains(term) || x.Email.Contains(term) || x.Phone.Contains(term));
+        if (term.Length > 0)
+        {
+            var digits = string.Concat(term.Where(char.IsDigit).Select(x => (char)('0' + (int)char.GetNumericValue(x))));
+            var phoneQuery = digits.Length > 0 && term.All(x => char.IsDigit(x) || " +()-".Contains(x));
+            foreach (var token in term.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries))
+            {
+                rows = rows.Where(x => EF.Functions.Collate(x.Name, "Arabic_100_CI_AI").Contains(token) ||
+                    x.Email.Contains(token) || x.Phone.Contains(token) || phoneQuery &&
+                    x.Phone.Replace(" ", "").Replace("-", "").Replace("(", "").Replace(")", "").Contains(digits));
+            }
+        }
         var count = await rows.CountAsync(ct);
         var items = await rows.OrderByDescending(x => x.CreatedAt).ThenByDescending(x => x.Id)
             .Skip((number - 1) * size).Take(size)
@@ -163,7 +229,8 @@ public static class RecruitmentEndpoints
         new(new(row.Id, row.Name, row.Email, row.Phone, row.Voice, row.Status, row.CreatedAt,
                 row.GroupId, row.Group?.NameEn ?? row.GroupNameEn, row.Group?.NameAr ?? row.GroupNameAr),
             row.Experience, row.Notes, row.Revision, row.UpdatedAt, row.RecordingName == "" ? "" : $"/api/admin/applications/{row.Id}/recording",
-            row.BackingAudio, row.BackingTitle, row.RecordedWithBacking, row.RecordingMixed);
+            row.BackingAudio, row.BackingTitle, row.RecordedWithBacking, row.RecordingMixed,
+            row.PhotoName == "" ? "" : $"/api/admin/applications/{row.Id}/photo", RegistrationEndpoints.Answers(row));
 
     private static async Task<IResult> Detail(int id, KoralDb db, CancellationToken ct) =>
         await db.ChoirApplications.AsNoTracking().Include(x => x.Group).SingleOrDefaultAsync(x => x.Id == id, ct) is { } row
@@ -171,7 +238,8 @@ public static class RecruitmentEndpoints
 
     private static async Task<IResult> Update(int id, ApplicationUpdate input, KoralDb db, Catalog catalog, HttpContext http, CancellationToken ct)
     {
-        if (!Recruitment.Statuses.Contains(input.Status) || input.Notes is not { Length: <= 4000 })
+        var statusOptions = (await RegistrationEndpoints.Schema(db, ct)).Statuses;
+        if (!statusOptions.Any(x => x.Id == input.Status) || input.Notes is not { Length: <= 4000 })
             return Results.Problem("Select a status and enter no more than 4,000 characters in notes.", statusCode: 400);
 
         var row = await db.ChoirApplications.Include(x => x.Group).SingleOrDefaultAsync(x => x.Id == id, ct);
@@ -196,6 +264,7 @@ public static class RecruitmentEndpoints
         try { await db.SaveChangesAsync(ct); }
         catch (DbUpdateConcurrencyException) { return Conflict(); }
         if (row.RecordingName != "") storage.Remove(Recordings, row.RecordingName);
+        if (row.PhotoName != "") storage.Remove(Photos, row.PhotoName);
         return Results.NoContent();
     }
 

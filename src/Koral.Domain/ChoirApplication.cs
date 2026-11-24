@@ -25,6 +25,16 @@ public sealed class ChoirApplication
     public string BackingTitle { get; set; } = "";
     public bool RecordedWithBacking { get; set; }
     public bool RecordingMixed { get; set; }
+    public string FormAnswers { get; set; } = "[]";
+    public string PhotoName { get; set; } = "";
+    public string PhotoType { get; set; } = "";
+}
+
+public sealed class RegistrationForm
+{
+    public int Id { get; set; }
+    public Guid Revision { get; set; }
+    public string Fields { get; set; } = "[]";
 }
 
 public sealed class ChoirGroup
