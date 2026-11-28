@@ -55,7 +55,10 @@ public static class ContentEndpoints
         admin.MapPut("/settings", async (Settings input, Catalog catalog, HttpContext http) =>
         {
             if (input.DefaultLanguage is not ("en" or "ar") || (input.DefaultLanguage == "en" && !input.English) ||
-                (input.DefaultLanguage == "ar" && !input.Arabic) || !await catalog.MediaExists(input.Favicon, "image/"))
+                (input.DefaultLanguage == "ar" && !input.Arabic) || !await catalog.MediaExists(input.Favicon, "image/") ||
+                input.AnnouncementTitleEn is not { Length: <= 160 } || input.AnnouncementTitleAr is not { Length: <= 160 } ||
+                input.AnnouncementBodyEn is not { Length: <= 4000 } || input.AnnouncementBodyAr is not { Length: <= 4000 } ||
+                input.AnnouncementImage is null || !await catalog.MediaExists(input.AnnouncementImage, "image/"))
                 return Results.Problem("Enable the default language and select a valid favicon.", statusCode: 400);
             await catalog.SaveSettings(input, Sessions.Actor(http));
             return Results.Ok(input);

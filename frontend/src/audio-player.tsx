@@ -3,6 +3,11 @@ import { Pause, Play, Volume2 } from 'lucide-react';
 import { useLocale } from './data';
 
 export const clock=(n:number)=> isFinite(n)?Math.floor(n/60)+':'+String(Math.floor(n%60)).padStart(2,'0'):'0:00';
+export function VolumeControl({value,change,label}:{value:number;change:(value:number)=>void;label?:string}) {
+  const {t}=useLocale();
+  return <div className="volume"><Volume2 size={18} aria-hidden="true"/><input type="range" min={0} max={1} step=".05" value={value}
+    aria-label={label??t('Volume','مستوى الصوت')} onChange={e=>change(Number(e.target.value))}/></div>;
+}
 export function Player({src,autoPlay,onEnd}:{src:string;autoPlay?:boolean;onEnd?:()=>void}) {
   const {t}=useLocale();
   const audio=useRef<HTMLAudioElement>(null);
@@ -26,8 +31,7 @@ export function Player({src,autoPlay,onEnd}:{src:string;autoPlay?:boolean;onEnd?
     <div className="scrub"><span className="timestamps" dir="ltr">{clock(time)} / {clock(duration)}</span>
       <input type="range" min={0} max={duration||1} step=".1" value={time} disabled={!duration}
         aria-label={t('Seek position','موضع التشغيل')} onChange={e=>{audio.current!.currentTime=Number(e.target.value);setTime(Number(e.target.value));}}/></div>
-    <div className="volume"><Volume2 size={18}/><input type="range" min={0} max={1} step=".05" value={volume}
-      aria-label={t('Volume','مستوى الصوت')} onChange={e=>{audio.current!.volume=Number(e.target.value);setVolume(Number(e.target.value));}}/></div>
+    <VolumeControl value={volume} change={value=>{if(audio.current)audio.current.volume=value;setVolume(value);}}/>
     {(busy||failed)&&<span className="player-state" role="status">{failed?t('Audio could not play. Press play to retry.','تعذر تشغيل الصوت. اضغط تشغيل لإعادة المحاولة.'):t('Buffering…','جارٍ التحميل…')}</span>}
   </div>;
 }

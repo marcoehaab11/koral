@@ -107,6 +107,12 @@ textarea{resize:vertical}
 .choir-folder{display:grid;align-content:space-between;gap:18px;min-block-size:126px;padding:clamp(16px,3vw,26px);
   border:1px solid var(--line);border-radius:4px;background:var(--white);font-size:clamp(1rem,2.4vw,1.35rem);font-weight:700;overflow-wrap:anywhere}
 .choir-folder svg{color:#47634d}
+.choir-folder img{display:block;inline-size:100%;aspect-ratio:16/9;object-fit:cover;border-radius:4px}
+.home-announcement{padding:clamp(18px,4vw,40px);display:flex;flex-wrap:wrap;gap:20px;align-items:center}
+.home-announcement>div{flex:2 1 260px;min-inline-size:0;overflow-wrap:anywhere}
+.home-announcement h2{margin-block-start:0}
+.home-announcement .prose{white-space:pre-line;margin-block-end:0}
+.home-announcement img{display:block;flex:1 1 220px;inline-size:min(100%,440px);max-inline-size:100%;object-fit:contain}
 .choir-folder:hover{border-color:#81917f;background:#edf1e8}
 .choir-index{overflow-anchor:none}
 .choir-back{margin-block-end:14px}

@@ -26,7 +26,7 @@ public static class ChoirGroups
             .Select(x => new GroupView(x.Id, x.NameEn, x.NameAr, x.Accepting, x.RecordingRequired,
                 admin || (x.RecruitmentEnabled && x.Accepting) ? x.BackingAudio : "",
                 admin || (x.RecruitmentEnabled && x.Accepting) ? x.BackingTitle : "",
-                x.CatalogSlot, x.RecruitmentEnabled)).ToListAsync(ct);
+                x.CatalogSlot, x.RecruitmentEnabled, x.Image)).ToListAsync(ct);
 
     private static async Task<IResult> Save(int? id, GroupInput input, KoralDb db, Catalog catalog, HttpContext http, CancellationToken ct)
     {
@@ -45,11 +45,14 @@ public static class ChoirGroups
             return Results.Problem("This catalogue position is already assigned to a choir.", statusCode: 409);
         if (audio != "" && !await catalog.MediaExists(audio, "audio/"))
             return Results.Problem("Select a valid backing track.", statusCode: 400);
+        if (input.Image is not null && !await catalog.MediaExists(input.Image, "image/"))
+            return Results.Problem("Select a valid folder image.", statusCode: 400);
         var group = id is int key ? await db.ChoirGroups.FindAsync([key], ct) : new ChoirGroup();
         if (group is null) return Results.NotFound();
         (group.NameEn, group.NameAr, group.Accepting, group.RecordingRequired, group.BackingAudio, group.BackingTitle) =
             (en, ar, input.Accepting, input.RecordingRequired, audio, audio == "" ? "" : title);
         group.RecruitmentEnabled = input.RecruitmentEnabled ?? group.RecruitmentEnabled;
+        group.Image = input.Image ?? group.Image;
         if (input.CatalogSlot.HasValue) group.CatalogSlot = input.CatalogSlot > 0 ? input.CatalogSlot : null;
         if (id is null) db.ChoirGroups.Add(group);
         try { await db.SaveChangesAsync(ct); }
@@ -61,7 +64,7 @@ public static class ChoirGroups
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
         return Results.Ok(new GroupView(group.Id, en, ar, group.Accepting, group.RecordingRequired, audio, group.BackingTitle,
-            group.CatalogSlot, group.RecruitmentEnabled));
+            group.CatalogSlot, group.RecruitmentEnabled, group.Image));
     }
 
     private static Task<GroupImpact?> Impact(int id, KoralDb db, CancellationToken ct) =>
@@ -90,8 +93,8 @@ public static class ChoirGroups
 
     private sealed record GroupImpact(int Albums, int Applications, bool Backing);
     public sealed record GroupInput(string NameEn, string NameAr, bool Accepting, bool RecordingRequired,
-        string BackingAudio, string BackingTitle, bool? RecruitmentEnabled = null, int? CatalogSlot = null);
+        string BackingAudio, string BackingTitle, bool? RecruitmentEnabled = null, int? CatalogSlot = null, string? Image = null);
 
     public sealed record GroupView(int Id, string NameEn, string NameAr, bool Accepting, bool RecordingRequired,
-        string BackingAudio, string BackingTitle, int? CatalogSlot, bool RecruitmentEnabled);
+        string BackingAudio, string BackingTitle, int? CatalogSlot, bool RecruitmentEnabled, string Image);
 }

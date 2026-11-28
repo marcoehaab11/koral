@@ -20,9 +20,10 @@ internal static class RegistrationEndpoints
 
     internal static void MapRegistration(this WebApplication app)
     {
-        app.MapGet("/api/join/form", async (KoralDb db, HttpContext http, CancellationToken ct) =>
+        app.MapGet("/api/join/form", async (KoralDb db, Catalog catalog, HttpContext http, CancellationToken ct) =>
         {
             http.Response.Headers.CacheControl = "no-cache";
+            if (!(await catalog.Settings()).HomeJoin) return Results.NotFound();
             var schema = await Schema(db, ct);
             return Results.Ok(new { schema.Revision, Fields = schema.Fields.Where(x => x.Visible) });
         });

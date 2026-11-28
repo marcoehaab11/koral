@@ -26,6 +26,7 @@ test('choir folders show assigned albums and only enabled sources',async({page})
   await page.goto('/ADMIN/choir-groups');
   await page.getByRole('combobox',{name:'Select a choir group'}).selectOption(String(senior.id));
   await page.getByLabel('Name in English').fill('Main Choir');
+  await page.getByLabel('Choir folder image',{exact:true}).setInputFiles({name:'choir-folder.webp',mimeType:'image/webp',buffer:artwork});
   await page.getByRole('button',{name:'Save choir group'}).click();
   await expect(page.getByText('Group saved.')).toBeVisible();
 
@@ -64,6 +65,7 @@ test('choir folders show assigned albums and only enabled sources',async({page})
   await page.goto('/albums');
   const chooser=page.getByRole('region',{name:'Choose a choir'});
   await expect(chooser.getByRole('link')).toHaveCount(2);
+  await expect(chooser.getByRole('link',{name:'Main Choir'}).locator('img')).toHaveAttribute('src',/\/uploads\/albums\//);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBe(390);
   await chooser.getByRole('link',{name:'Main Choir'}).click();
   await expect(page.getByRole('heading',{name:'Main Choir',exact:true})).toBeVisible();

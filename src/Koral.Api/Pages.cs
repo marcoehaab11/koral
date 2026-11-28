@@ -15,7 +15,8 @@ public static class Pages
         app.MapGet("/sitemap.xml", async (Catalog catalog, HttpContext http, IConfiguration config, IWebHostEnvironment env) =>
         {
             var settings = await catalog.Settings();
-            var paths = new List<string> { "/", "/about", "/albums", "/songs", "/gallery", "/join" };
+            var paths = new List<string> { "/", "/about", "/albums", "/songs", "/gallery" };
+            if (settings.HomeJoin) paths.Add("/join");
             if (settings.Members) paths.Add("/members");
             if (settings.Events) paths.Add("/events");
             foreach (var resource in new[] { "albums", "songs" })
@@ -45,7 +46,8 @@ public static class Pages
             var profile = await catalog.Profile();
             var admin = resource == "admin";
             var arabic = settings.DefaultLanguage == "ar";
-            var valid = path == "/" || (parts.Length == 1 && resource is "about" or "albums" or "songs" or "gallery" or "search" or "join") ||
+            var valid = path == "/" || (parts.Length == 1 && resource is "about" or "albums" or "songs" or "gallery" or "search") ||
+                (parts.Length == 1 && resource == "join" && settings.HomeJoin) ||
                 (parts.Length == 1 && (resource == "members" && settings.Members || resource == "events" && settings.Events)) || admin;
             Content? item = null;
             if (parts.Length == 2 && resource is "albums" or "songs")
@@ -60,7 +62,7 @@ public static class Pages
                 "albums" => arabic ? "الألبومات" : "Albums",
                 "songs" => arabic ? "الأغاني" : "Songs",
                 "gallery" => arabic ? "المعرض" : "Gallery",
-                "join" => arabic ? "انضم للكورال" : "Join the choir",
+                "join" when settings.HomeJoin => arabic ? "انضم للكورال" : "Join the choir",
                 "members" => arabic ? "الأعضاء" : "Members",
                 "events" => arabic ? "الفعاليات" : "Events",
                 "search" => arabic ? "البحث" : "Search",
@@ -70,7 +72,7 @@ public static class Pages
             var title = string.IsNullOrWhiteSpace(pageTitle) ? site : pageTitle + " | " + site;
             var description = Choose(item is null ? "" : arabic ? item.DescriptionAr : item.DescriptionEn,
                 Choose(arabic ? settings.DescriptionAr : settings.DescriptionEn, arabic ? profile.IntroAr : profile.IntroEn));
-            if (resource == "join") description = arabic ? "الاشتراك في كورال يوسف الصديق" : "Registration for Youssef El-Seddik Choir";
+            if (resource == "join" && settings.HomeJoin) description = arabic ? "الاشتراك في كورال يوسف الصديق" : "Registration for Youssef El-Seddik Choir";
             var origin = Origin(http, config, env);
             var url = origin + path;
             var image = Choose(item?.Image, profile.Cover);
@@ -97,6 +99,6 @@ public static class Pages
         });
     }
     static string Choose(string? value, string fallback) => string.IsNullOrWhiteSpace(value) ? fallback : value;
-    static string Origin(HttpContext http, IConfiguration config, IWebHostEnvironment env) =>
+    internal static string Origin(HttpContext http, IConfiguration config, IWebHostEnvironment env) =>
         config["Hosting:PublicUrl"]?.TrimEnd('/') ?? (env.IsDevelopment() ? $"{http.Request.Scheme}://{http.Request.Host}" : throw new InvalidOperationException("Set Hosting__PublicUrl."));
 }

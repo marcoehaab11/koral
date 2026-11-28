@@ -18,8 +18,11 @@ public static class RecruitmentEndpoints
 
     public static void MapRecruitment(this WebApplication app)
     {
-        app.MapGet("/api/join/backing", Backing);
-        app.MapGroup("/api/join").WithCsrf(false).MapPost("/", Submit).RequireRateLimiting("recruitment")
+        var join = app.MapGroup("/api/join").AddEndpointFilter(async (context, next) =>
+            (await context.HttpContext.RequestServices.GetRequiredService<Catalog>().Settings()).HomeJoin
+                ? await next(context) : Results.NotFound());
+        join.MapGet("/backing", Backing);
+        join.WithCsrf(false).MapPost("/", Submit).RequireRateLimiting("recruitment")
             .WithMetadata(new RequestSizeLimitAttribute(MaxRecordingBytes + MaxPhotoBytes + 65_536));
 
         var admin = app.MapGroup("/api/admin/applications").RequireAuthorization("Owner").WithCsrf();
@@ -28,6 +31,7 @@ public static class RecruitmentEndpoints
         admin.MapGet("/{id:int}/recording", Recording);
         admin.MapGet("/{id:int}/photo", Photo);
         admin.MapGet("/export", ApplicationExport.Download);
+        app.MapGet("/api/application-attachment/{token}", ApplicationExport.Attachment);
         admin.MapPut("/{id:int}", Update);
         admin.MapDelete("/{id:int}", Delete);
     }

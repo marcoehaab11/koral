@@ -74,9 +74,11 @@ public static class MediaEndpoints
             var profile = await catalog.Profile();
             var settings = await catalog.Settings();
             if (profile.Logo == path || profile.Cover == path || profile.CoverMobile == path ||
-                profile.AboutImage == path || settings.Favicon == path) return true;
+                profile.AboutImage == path || settings.Favicon == path ||
+                settings.HomeAnnouncement && settings.AnnouncementImage == path) return true;
         }
         if (await db.Albums.AnyAsync(x => x.Published && x.Image == path)) return true;
+        if (await db.ChoirGroups.AnyAsync(x => x.CatalogSlot != null && x.Image == path)) return true;
         if (await db.Songs.AnyAsync(x => x.Published && (x.Image == path || x.Audio == path))) return true;
         if (bucket == "audio" && await db.ChoirGroups.AnyAsync(x => x.RecruitmentEnabled && x.Accepting && x.BackingAudio == path)) return true;
         if (await db.Gallery.AnyAsync(x => x.Published && (x.Image == path || x.Video == path))) return true;

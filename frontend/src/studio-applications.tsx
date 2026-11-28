@@ -60,6 +60,8 @@ export function ApplicationsList() {
         <a className="button outline" href={'/api/'+endpoint+'/export'+params({from,to,lang})} download>
           {t('Export to Excel','صدّر إلى Excel')}</a>}
     </div>
+    <p className="metadata">{t('Attachment links work outside Studio for 7 days. Keep the export private.',
+      'روابط الملفات تشتغل خارج الأدمن لمدة ٧ أيام. احتفظ بملف التصدير بشكل خاص.')}</p>
     {!data?<Feedback pending={result.isPending} error={result.error} onRetry={()=>result.refetch()}/>:
       <><p className="metadata" role="status">{t('Matching applications','عدد الطلبات المطابقة')} · {data.total}</p>
         {data.items.length?<ul className="applicant-list">{data.items.map(item=>{const option=statuses.find(x=>x.id===item.status);return <li key={item.id}>

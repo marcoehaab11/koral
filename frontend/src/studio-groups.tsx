@@ -60,6 +60,8 @@ function GroupForm({group,groups,onSaved,onDeleted}:{group:ChoirGroup;groups:Cho
             {slot===1?t('First choice','الاختيار الأول'):t('Second choice','الاختيار الثاني')}</option>)}
         </select>
       </label>
+      <MediaField title={t('Choir folder image','صورة مجلد الكورال')} bucket="albums" kind="image" value={data.image??''}
+        change={v=>set('image',v)} busy={delta=>setUploads(n=>n+delta)}/>
       <Toggle title={t('Include this choir in recruitment','استخدم الكورال ده في التقديم')}
         checked={data.recruitmentEnabled!==false} change={v=>set('recruitmentEnabled',v)}/>
       {data.recruitmentEnabled!==false&&<>

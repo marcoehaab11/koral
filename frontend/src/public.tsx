@@ -55,7 +55,7 @@ function Header() {
     if(event.key==='Escape'&&open){setOpen(false);menu.current?.focus();}
   }}><div className="shell header-row">
     <Brand/><nav ref={navigation} aria-label={t('Main navigation','القائمة الرئيسية')} id="main-navigation" className={open?'navigation open':'navigation'}>
-      {(['home','albums','songs','about','gallery','join'] as const).map(key =>
+      {(['home','albums','songs','gallery','about'] as const).map(key =>
         <NavLink end={key==='home'} key={key} to={key==='home'?'/':'/'+key}>{l(key)}</NavLink>)}
     </nav><div className="header-tools">
       <Link className="icon-button" to="/search" aria-label={l('search')}><Search size={21}/></Link>
@@ -77,7 +77,7 @@ function Footer() {
         <div className="footer-section">
           <h2 id="footer-navigation-heading">{t('Explore','تصفّح الموقع')}</h2>
           <nav className="footer-navigation" aria-labelledby="footer-navigation-heading">
-            {(['about','albums','songs','gallery','members','events','join'] as const)
+            {(['about','albums','songs','gallery','members','events'] as const)
               .filter(key=>(key!=='members'||settings.members)&&(key!=='events'||settings.events))
               .map(key=><Link key={key} to={'/'+key}>{l(key)}</Link>)}
           </nav>
@@ -167,6 +167,8 @@ function Home() {
   const reduce=useReducedMotion();
   useTitle('');
   const intro=t(profile.introEn,profile.introAr)||t('Choral music, lyrics, and moments from the stage.','موسيقى الكورال وكلمات الأغاني ولحظات من المسرح.');
+  const announcementTitle=t(settings.announcementTitleEn,settings.announcementTitleAr);
+  const announcementBody=t(settings.announcementBodyEn,settings.announcementBodyAr);
   return <>
     <section className="hero"><div className="shell hero-layout">
       <motion.div className="hero-inner" initial={reduce?false:{opacity:0,y:16}} animate={{opacity:1,y:0}} transition={{duration:.55}}>
@@ -180,6 +182,13 @@ function Home() {
       <div className="hero-media"><Photo cover={profile.cover} mobile={profile.coverMobile} hero
         alt={profile.cover===profile.aboutImage?t(profile.aboutImageAltEn,profile.aboutImageAltAr):''}/></div>
     </div></section>
+    {settings.homeAnnouncement&&(announcementTitle||announcementBody||settings.announcementImage)&&<section className="shell section">
+      <div className="panel home-announcement">
+        <div><h2>{announcementTitle||t('Announcement','إعلان')}</h2>
+          {announcementBody&&<p className="prose">{announcementBody}</p>}</div>
+        {settings.announcementImage&&<img src={settings.announcementImage} alt="" loading="lazy"/>}
+      </div>
+    </section>}
     {settings.homeAlbums && <Section title={t('Featured albums','ألبومات مختارة')} href="/albums"><Preview resource="albums" suffix="?featured=true&size=3"/></Section>}
     {settings.homeSongs && <Section title={t('Latest songs','أحدث الترانيم')} href="/songs"><Preview resource="songs" suffix="?order=latest&size=4" rows/></Section>}
     {settings.homeFeaturedSongs && <Section title={t('Featured songs','ترانيم مختارة')} href="/songs?filter=featured">
@@ -264,7 +273,7 @@ function Index({resource}:{resource:Resource}) {
           <h2 className="album-choirs-title" id="album-choirs-title">{t('Choose a choir','اختار الكورال')}</h2>
           <div className="album-choirs">{choices.map(choir=><Link key={choir.id}
             to={'/albums'+params({group:choir.id,q,filter,year})} className="choir-folder">
-            <FolderOpen size={31} strokeWidth={1.5} aria-hidden="true"/>
+            {choir.image?<img src={choir.image} alt="" loading="lazy"/>:<FolderOpen size={31} strokeWidth={1.5} aria-hidden="true"/>}
             <span>{t(choir.nameEn,choir.nameAr)}</span></Link>)}</div>
         </section>:<Feedback empty={t('No choirs are available yet.','مفيش كورالات متاحة للعرض حاليًا.')}/>}
     </div>;
@@ -400,7 +409,7 @@ function SearchPage() {
   </div>;
 }
 export function PublicSite() {
-  const {t,publicError}=useLocale();
+  const {t,settings,publicError}=useLocale();
   const {pathname}=useLocation();
   const main=useRef<HTMLElement>(null);
   const previous=useRef(pathname);
@@ -414,6 +423,8 @@ export function PublicSite() {
     <main ref={main} id="main" tabIndex={-1}>{publicError&&<Feedback error/>}<Suspense fallback={<Feedback pending/>}><Routes><Route index element={<Home/>}/><Route path="about" element={<About/>}/>
       {(['albums','songs','gallery','members','events'] as const).map(x=><Route key={x} path={x} element={<Index key={x} resource={x}/>}/>)}
       <Route path="albums/:slug" element={<Detail resource="albums" key={pathname}/>}/><Route path="songs/:slug" element={<Detail resource="songs" key={pathname}/>}/>
-      <Route path="search" element={<SearchPage/>}/><Route path="join" element={<JoinChoir/>}/><Route path="*" element={<div className="shell page"><Feedback error={new ApiError(404,'')}/></div>}/>
+      <Route path="search" element={<SearchPage/>}/><Route path="join" element={settings.homeJoin?<JoinChoir/>:
+        <div className="shell page"><Feedback error={new ApiError(404,'')}/></div>}/>
+      <Route path="*" element={<div className="shell page"><Feedback error={new ApiError(404,'')}/></div>}/>
     </Routes></Suspense></main><Footer/></div></PlaybackProvider>;
 }

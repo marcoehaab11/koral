@@ -2,6 +2,7 @@ import { expect, test, type APIRequestContext } from '@playwright/test';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
+import { execFileSync } from 'node:child_process';
 
 const photo=fileURLToPath(new URL('../public/media/choir-800.webp',import.meta.url));
 const evidence=process.env.KORAL_QA_AUDIO_DIR;
@@ -16,8 +17,30 @@ async function write(request:APIRequestContext,path:string,method:string,data?:u
 
 test('PDF defaults validate, stop accompanied recording automatically, and preserve the completed application',async({page,request,context})=>{
   await context.grantPermissions(['microphone']);
+  await page.addInitScript(()=>{
+    const connect=AudioNode.prototype.connect;
+    AudioNode.prototype.connect=function(this:AudioNode,...args:unknown[]){
+      if(args[0]===this.context.destination&&this instanceof GainNode)Object.assign(window,{monitorGain:this.gain});
+      return Reflect.apply(connect,this,args);
+    } as typeof connect;
+  });
   await page.setViewportSize({width:390,height:844});
   await page.goto('/');
+  await expect(page.locator('a[href="/join"]')).toHaveCount(0);
+  expect((await request.get('/join')).status()).toBe(404);
+  expect((await request.get('/api/join/form')).status()).toBe(404);
+  await expect(await write(page.request,'auth/login','POST',{email:'admin@admin.com',password:'Admin@123456'})).toBeOK();
+  const settings=await (await request.get('/api/settings')).json();
+  await expect(await write(page.request,'admin/settings','PUT',{...settings,homeJoin:true,homeAnnouncement:true,
+    announcementTitleAr:'ميعاد البروفة',announcementTitleEn:'Rehearsal time',
+    announcementBodyAr:'الجمعة مساءً',announcementBodyEn:'Friday evening'})).toBeOK();
+  await page.reload();
+  await expect(page.getByRole('heading',{name:'Rehearsal time'})).toBeVisible();
+  await expect(page.locator('header a[href="/join"],footer a[href="/join"]')).toHaveCount(0);
+  await page.getByRole('button',{name:'Open menu'}).click();
+  const mainNav=page.getByRole('navigation',{name:'Main navigation'});
+  expect(await mainNav.getByRole('link').allTextContents()).toEqual(['Home','Albums','Songs','Gallery','About']);
+  await page.keyboard.press('Escape');
   const joinLink=page.locator('.hero').getByRole('link',{name:'Join the choir'});
   await expect(joinLink).toBeVisible();
   await joinLink.click();
@@ -61,8 +84,16 @@ test('PDF defaults validate, stop accompanied recording automatically, and prese
   expect(Object.keys((await invalid.json()).errors)).toEqual(expect.arrayContaining(['last-name','whatsapp','photo','recording']));
 
   await page.clock.install();
+  const volume=page.getByRole('slider',{name:'مستوى صوت الموسيقى المصاحبة'});
+  await expect(volume).toHaveValue('1');
   await page.getByRole('button',{name:'ابدأ التسجيل'}).click();
   await expect(page.getByRole('timer')).toBeVisible();
+  const gain=()=>page.evaluate(()=>(window as Window & {monitorGain?:AudioParam}).monitorGain?.value);
+  await expect.poll(gain).toBe(1);
+  await volume.focus();
+  await volume.press('ArrowDown');
+  await expect.poll(gain).toBeCloseTo(.95);
+  await volume.press('End');
   await expect(page.getByRole('timer')).toContainText('2 / 90');
   await page.clock.fastForward(90_000);
   await expect(page.getByText('التسجيل بالصوت والموسيقى')).toBeVisible();
@@ -70,7 +101,6 @@ test('PDF defaults validate, stop accompanied recording automatically, and prese
   await send.click();
   await expect(page.getByRole('heading',{name:'طلبك وصل'})).toBeFocused();
 
-  await expect(await write(page.request,'auth/login','POST',{email:'admin@admin.com',password:'Admin@123456'})).toBeOK();
   await page.goto('/ADMIN/applications');
   await page.getByLabel('ابحث في الطلبات').fill('٠١٢٣٤٥٦٧٨٩٠');
   await page.getByRole('button',{name:'البحث',exact:true}).click();
@@ -91,9 +121,11 @@ test('PDF defaults validate, stop accompanied recording automatically, and prese
   if(evidence)writeFileSync(join(evidence,'registration-mix.webm'),await (await page.request.get(data.recordingUrl)).body());
 });
 
-test('owner adds and reorders text and choice fields and removes them without losing historical export data',async({page,request})=>{
+test('owner adds and reorders text and choice fields and removes them without losing historical export data',async({page,request},testInfo)=>{
   await expect(await write(page.request,'auth/login','POST',{email:'admin@admin.com',password:'Admin@123456'})).toBeOK();
   expect((await request.get('/api/admin/applications/export')).status()).toBe(401);
+  const defaults=await (await request.get('/api/settings')).json();
+  if(!defaults.homeJoin)await expect(await write(page.request,'admin/settings','PUT',{...defaults,homeJoin:true})).toBeOK();
   await page.goto('/ADMIN/registration-form');
   const add=page.getByRole('button',{name:'Add field',exact:true});
   await add.click();
@@ -138,7 +170,20 @@ test('owner adds and reorders text and choice fields and removes them without lo
   const response=await page.request.get(filePath);
   await expect(response).toBeOK();
   expect(response.headers()['content-type']).toContain('spreadsheetml');
-  if(evidence)writeFileSync(join(evidence,'registration-export.xlsx'),await response.body());
+  const workbook=await response.body();
+  if(evidence)writeFileSync(join(evidence,'registration-export.xlsx'),workbook);
+  const workbookPath=testInfo.outputPath('applications.xlsx');
+  writeFileSync(workbookPath,workbook);
+  const relationships=execFileSync('tar.exe',['-xOf',workbookPath,'xl/worksheets/_rels/sheet1.xml.rels'],{encoding:'utf8'});
+  const targets=[...new Set(Array.from(relationships.matchAll(/Target="([^"]+)"/g),m=>m[1]))];
+  expect(targets.length).toBeGreaterThanOrEqual(2);
+  const attachments=await Promise.all(targets.map(url=>request.get(url)));
+  attachments.forEach(item=>{
+    expect(item.status()).toBe(200);
+    expect(item.headers()['content-disposition']).toContain('attachment;');
+  });
+  expect(attachments.map(item=>item.headers()['content-type'])).toEqual(expect.arrayContaining(['image/webp','audio/mpeg']));
+  expect((await request.get(targets[0]+'not-valid')).status()).toBe(404);
   const oldRows=await page.request.get('/api/admin/applications?q=01023456789');
   const id=(await oldRows.json()).items[0].id;
   await page.goto('/ADMIN/applications/'+id);

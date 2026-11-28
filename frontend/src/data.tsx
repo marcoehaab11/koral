@@ -13,7 +13,7 @@ export type Entry = {
   captionEn: string; captionAr: string; groupIds?: number[] | null;
 };
 export type ChoirGroup = { id: number; nameEn: string; nameAr: string; accepting: boolean; catalogSlot?:number|null; recruitmentEnabled?:boolean;
-  recordingRequired: boolean; backingAudio: string; backingTitle: string };
+  recordingRequired: boolean; backingAudio: string; backingTitle: string; image?:string };
 export type Profile = {
   nameEn: string; nameAr: string; logo: string; cover: string; introEn: string; introAr: string;
   aboutEn: string; aboutAr: string; founded: number | null; historyEn: string; historyAr: string; missionEn: string;
@@ -25,6 +25,7 @@ export type Settings = {
   titleEn: string; titleAr: string; descriptionEn: string; descriptionAr: string; favicon: string; footerEn: string; footerAr: string;
   defaultLanguage: Lang; members: boolean; events: boolean; homeAlbums: boolean; homeSongs: boolean;
   homeAbout: boolean; homeGallery: boolean; homeEvents: boolean; english: boolean; arabic: boolean; homeFeaturedSongs:boolean; homeJoin:boolean;
+  homeAnnouncement:boolean; announcementTitleEn:string; announcementTitleAr:string; announcementBodyEn:string; announcementBodyAr:string; announcementImage:string;
 };
 export type Page<T> = { items: T[]; total: number; pageNumber: number; pageSize: number };
 export type Session = { email: string; mustChangePassword: boolean; roles: string[] };
@@ -43,7 +44,8 @@ const emptyProfile: Profile = {
 };
 const emptySettings: Settings = {
   titleEn:'',titleAr:'',descriptionEn:'',descriptionAr:'',favicon:'',footerEn:'',footerAr:'',defaultLanguage:'en',
-  members:true,events:true,homeAlbums:true,homeSongs:true,homeAbout:true,homeGallery:true,homeEvents:true,english:true,arabic:true,homeFeaturedSongs:false,homeJoin:true,
+  members:true,events:true,homeAlbums:true,homeSongs:true,homeAbout:true,homeGallery:true,homeEvents:true,english:true,arabic:true,homeFeaturedSongs:false,homeJoin:false,
+  homeAnnouncement:false,announcementTitleEn:'',announcementTitleAr:'',announcementBodyEn:'',announcementBodyAr:'',announcementImage:'',
 };
 
 export class ApiError extends Error {

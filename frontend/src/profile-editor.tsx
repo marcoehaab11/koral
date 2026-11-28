@@ -24,7 +24,7 @@ function ProfileForm({kind,value}:{kind:'choir'|'settings';value:Profile|Setting
     ['english','English','الإنجليزية'],['arabic','Arabic','العربية'],['members','Members page','صفحة الأعضاء'],['events','Events page','صفحة الفعاليات'],
     ['homeAlbums','Featured albums','الألبومات المختارة'],['homeSongs','Latest songs','أحدث الأغاني'],['homeAbout','About preview','نبذة عن الكورال'],
     ['homeGallery','Gallery preview','مختارات المعرض'],['homeEvents','Events preview','الفعاليات المقبلة'],
-    ['homeFeaturedSongs','Featured songs','الأغاني المختارة'],['homeJoin','Join button on the homepage','زر الانضمام في الصفحة الرئيسية'],
+    ['homeFeaturedSongs','Featured songs','الأغاني المختارة'],['homeJoin','Join page and homepage button','صفحة الانضمام وزرها في الرئيسية'],
   ];
   return <><h1>{l(kind)}</h1><form className="editor" onSubmit={async e=>{
     e.preventDefault();setBusy(true);setError(undefined);setSaved(false);
@@ -49,6 +49,12 @@ function ProfileForm({kind,value}:{kind:'choir'|'settings';value:Profile|Setting
         <label>{t('Default language','اللغة الافتراضية')}<select value={text(data.defaultLanguage)} onChange={e=>set('defaultLanguage',e.target.value)}>
           <option value="en">English</option><option value="ar">العربية</option></select></label>
         {toggles.map(([key,en,ar])=><Toggle key={key} title={t(en,ar)} checked={Boolean(data[key])} change={v=>set(key,v)}/>)}
+      </Fieldset>
+      <Fieldset title={t('Homepage announcement','إعلان الصفحة الرئيسية')}>
+        <Toggle title={t('Show announcement','إظهار الإعلان')} checked={Boolean(data.homeAnnouncement)} change={v=>set('homeAnnouncement',v)}/>
+        {[...pair('announcementTitle','Announcement title','عنوان الإعلان'),
+          ...pair('announcementBody','Announcement text','نص الإعلان','textarea')].map(render)}
+        {image('announcementImage',t('Announcement image (optional)','صورة الإعلان (اختياري)'))}
       </Fieldset>
     </>}
     <FormError error={error}/>{saved&&<p className="form-success" role="status">{t('Changes saved.','تم حفظ التغييرات.')}</p>}

@@ -42,6 +42,7 @@ public sealed class ChoirGroup
     public int Id { get; set; }
     public string NameEn { get; set; } = "";
     public string NameAr { get; set; } = "";
+    public string Image { get; set; } = "";
     public bool Accepting { get; set; }
     public int? CatalogSlot { get; set; }
     public bool RecruitmentEnabled { get; set; } = true;

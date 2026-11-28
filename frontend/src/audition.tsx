@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useLocale } from './data';
+import { VolumeControl } from './audio-player';
 
 export const recordingLimit=8*1024*1024;
 const recordingSeconds=90;
@@ -12,6 +13,7 @@ export function AuditionPlayer({voice,backing,beforePlay}:{voice:string;backing?
   const track=useRef<HTMLAudioElement>(null);
   const [mixed,setMixed]=useState(false);
   const [error,setError]=useState(false);
+  const [volume,setVolume]=useState(1);
   useEffect(()=>{
     const main=lead.current, music=track.current;
     return ()=>{main?.pause();music?.pause();};
@@ -42,6 +44,11 @@ export function AuditionPlayer({voice,backing,beforePlay}:{voice:string;backing?
       onPause={()=>track.current?.pause()} onEnded={()=>track.current?.pause()} onSeeked={sync}
       onRateChange={e=>{if(track.current)track.current.playbackRate=e.currentTarget.playbackRate;}}/>
     {backing&&<audio ref={track} src={backing} preload="none"/>}
+    <VolumeControl value={volume} change={value=>{
+      if(lead.current)lead.current.volume=value;
+      if(track.current)track.current.volume=value;
+      setVolume(value);
+    }}/>
     {error&&<p role="alert" className="form-error">{t('The voice and music could not play together.','تعذّر تشغيل الصوت مع الموسيقى.')}</p>}
   </div>;
 }
@@ -55,10 +62,13 @@ export function Audition({backing,title,label,required,value,change,busyChanged,
   const [error,setError]=useState('');
   const [elapsed,setElapsed]=useState(0);
   const [url,setUrl]=useState('');
+  const [volume,setVolume]=useState(1);
   const audio=useRef<HTMLAudioElement>(null);
   const recorder=useRef<MediaRecorder|null>(null);
   const stream=useRef<MediaStream|null>(null);
   const mixer=useRef<AudioContext|null>(null);
+  const monitor=useRef<GainNode|null>(null);
+  const monitorVolume=useRef(1);
   const loadingTrack=useRef<AbortController|null>(null);
   const timer=useRef<number|undefined>(undefined);
   const mounted=useRef(false);
@@ -70,6 +80,7 @@ export function Audition({backing,title,label,required,value,change,busyChanged,
     loadingTrack.current=null;
     const context=mixer.current;
     mixer.current=null;
+    monitor.current=null;
     if(context&&context.state!=='closed')void context.close().catch(()=>{});
     stream.current?.getTracks().forEach(track=>track.stop());
     stream.current=null;
@@ -125,18 +136,25 @@ export function Audition({backing,title,label,required,value,change,busyChanged,
         if(!mounted.current)return;
         if(context.state!=='running')throw new Error('Audio output is unavailable');
         const output=context.createMediaStreamDestination();
-        const voice=context.createGain();
-        const backingGain=context.createGain();
-        voice.gain.value=.7;
-        backingGain.gain.value=.28;
-        context.createMediaStreamSource(mic).connect(voice).connect(output);
+        const limiter=context.createDynamicsCompressor();
+        limiter.threshold.value=-3;
+        limiter.knee.value=0;
+        limiter.ratio.value=20;
+        limiter.attack.value=.003;
+        limiter.release.value=.12;
+        const headroom=context.createGain();
+        headroom.gain.value=.9;
+        limiter.connect(headroom).connect(output);
+        context.createMediaStreamSource(mic).connect(limiter);
         music=context.createBufferSource();
         music.buffer=buffer;
         music.loop=true;
         // Monitor just the music. The saved stream receives both inputs.
-        music.connect(backingGain);
-        backingGain.connect(context.destination);
-        backingGain.connect(output);
+        const speaker=context.createGain();
+        speaker.gain.value=monitorVolume.current;
+        monitor.current=speaker;
+        music.connect(speaker).connect(context.destination);
+        music.connect(limiter);
         recordingStream=output.stream;
         startingMusic=false;
       }
@@ -205,6 +223,12 @@ export function Audition({backing,title,label,required,value,change,busyChanged,
       <p className="metadata">{t('Use headphones so the recording captures your voice clearly.','استخدم سماعات عشان التسجيل يلقط صوتك بوضوح.')}</p>
       <audio ref={audio} src={backing} controls={state==='ready'} preload="metadata" aria-label={t('Preview backing track','اسمع التراك المصاحب')}
         onPlay={stopSitePlayback}/>
+      <VolumeControl value={volume} label={t('Backing music volume','مستوى صوت الموسيقى المصاحبة')} change={value=>{
+        monitorVolume.current=value;
+        if(audio.current)audio.current.volume=value;
+        if(monitor.current)monitor.current.gain.value=value;
+        setVolume(value);
+      }}/>
     </>}
     {canRecord&&<div className="actions">
       {state==='recording'?<button type="button" className="button dark" onClick={stop}>{t('Stop recording','وقّف التسجيل')}</button>:

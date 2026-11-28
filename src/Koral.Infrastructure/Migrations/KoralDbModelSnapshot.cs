@@ -317,6 +317,10 @@ namespace Koral.Infrastructure.Migrations
                     b.Property<int?>("CatalogSlot")
                         .HasColumnType("int");
 
+                    b.Property<string>("Image")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("NameAr")
                         .IsRequired()
                         .HasMaxLength(120)

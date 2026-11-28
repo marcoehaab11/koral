@@ -22,7 +22,9 @@ public sealed record Settings(string TitleEn = "", string TitleAr = "", string D
     string Favicon = "", string FooterEn = "", string FooterAr = "", string DefaultLanguage = "en",
     bool Members = true, bool Events = true, bool HomeAlbums = true, bool HomeSongs = true,
     bool HomeAbout = true, bool HomeGallery = true, bool HomeEvents = true, bool English = true, bool Arabic = true,
-    bool HomeFeaturedSongs = false, bool HomeJoin = true);
+    bool HomeFeaturedSongs = false, bool HomeJoin = false,
+    bool HomeAnnouncement = false, string AnnouncementTitleEn = "", string AnnouncementTitleAr = "",
+    string AnnouncementBodyEn = "", string AnnouncementBodyAr = "", string AnnouncementImage = "");
 public sealed record Page<T>(List<T> Items, int Total, int PageNumber, int PageSize);
 public sealed record Activity(string Actor, string Action, string Resource, int? EntryId, DateTimeOffset At);
 public sealed record Account(string Email, string Password);
